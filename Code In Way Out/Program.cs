@@ -16,7 +16,7 @@ namespace kolpet.MazeSolver
         {
             string xml = args.Length == 1 ? args[0] : File.ReadAllText("xml.txt");
             Maze maze = new Maze(xml);
-            Agency agency = args.Length == 1 ? new Agency(maze) : new Agency(maze, 75);
+            Agency agency = args.Length == 1 ? new Agency(maze) : new Agency(maze, 50);
             Agent best = agency.Solve();
             Console.Write(best.Result());
         }
@@ -88,7 +88,7 @@ namespace kolpet.MazeSolver
 
         public void Enqueue(Agent agent)
         {
-            double weight = agent.Steps + agent.Position.GetDistance(maze.End);
+            double weight = (agent.Steps) * 2 + agent.Position.GetDistance(maze.End);
             agents.Enqueue(agent, weight);
         }
 
@@ -140,7 +140,7 @@ namespace kolpet.MazeSolver
     {
         public Step? root;
 
-        public District? rotation;
+        public District? district;
         public Direction direction;
         public int length;
         public int id;
@@ -148,7 +148,7 @@ namespace kolpet.MazeSolver
         public Step(Direction direction)
         {
             this.direction = direction;
-            rotation = null;
+            district = null;
             length = 1;
         }
 
@@ -158,10 +158,18 @@ namespace kolpet.MazeSolver
             this.root = root;
         }
 
+        public Step(Step root, District district, Direction rotation)
+        {
+            this.root = root;
+            this.district = district;
+            direction = rotation;
+            length = 1;
+        }
+
         private Step(Step clone)
         {
             root = clone.root;
-            rotation = clone.rotation;
+            district = clone.district;
             direction = clone.direction;
             length = clone.length;
         }
@@ -177,7 +185,7 @@ namespace kolpet.MazeSolver
 
         public override string ToString()
         {
-            return (rotation == null ? $"move {direction!}" : $"rotate {rotation} {direction}") + $"; id {id}";
+            return (district == null ? $"move {direction!}" : $"rotate {district} {direction}") + $"; id {id}";
         }
     }
 
@@ -188,6 +196,7 @@ namespace kolpet.MazeSolver
         Agency agency;
         IMaze maze;
         Step plannedStep;
+        int rotationLimit = 5;
 
         public Point Position { get; private set; }
 
@@ -217,16 +226,26 @@ namespace kolpet.MazeSolver
         {
             if (Steps > 200) return;
 
-            Direction direction = plannedStep.direction;
-            Position.Move(direction);
-            Steps++;
-            plannedStep.id = id;
-            maze.Walk(Position);
+            if (plannedStep.district != null)
+            {
+                maze = maze.RotateCopy((District)plannedStep.district, plannedStep.direction);
+                Steps+=5;
+                plannedStep.id = id;
+                rotationLimit--;
+            }
+            else
+            {
+                Direction direction = plannedStep.direction;
+                Position.Move(direction);
+                Steps++;
+                plannedStep.id = id;
+                maze.Walk(Position);
+            }
 
             if (Position == maze.End) return;
             if (maze[Position] == Tile.Trap)
             {
-                maze = maze.Trigger(Position);
+                maze = maze.TriggerCopy(Position);
                 Position = maze.Start.Clone();
                 plannedStep = new Step(plannedStep, agency.FirstStep.direction);
                 agency.Enqueue(this);
@@ -234,6 +253,7 @@ namespace kolpet.MazeSolver
             }
 
             Queue<Step> choices = new Queue<Step>();
+            District district = Extensions.GetDistrict(Position.x, Position.y);
             Direction desire = Position.GetDirection(maze.End);
             for (int i = 0; i < 4; i++)
             {
@@ -242,6 +262,17 @@ namespace kolpet.MazeSolver
                     !maze.IsWalked(neighbour))
                 {
                     choices.Enqueue(new Step(plannedStep, desire));
+                }
+
+                if (maze.Level == 3 && rotationLimit > 0)
+                {
+                    District neighbourDistrict = Extensions.GetDistrict(neighbour.x, neighbour.y);
+                    if (neighbourDistrict != district &&
+                        neighbourDistrict != District.Outside &&
+                        maze.PreviewRotation(CodeRotation.Right, neighbour.x, neighbour.y).IsValid())
+                    {
+                        choices.Enqueue(new Step(plannedStep, neighbourDistrict, Direction.Right));
+                    }
                 }
                 desire = desire.Rotate(Direction.Left);
             }
@@ -265,8 +296,18 @@ namespace kolpet.MazeSolver
             Stack<Step> steps = new Stack<Step>();
             do
             {
-                Step step = new Step(current.direction);
-                while (current.root != null && current.root.direction == step.direction && step.length < 14) { step.length++; current = current.root; }
+                Step step = current.Clone();
+                if (step.district == null)
+                {
+                    while (current.root != null &&
+                        current.root.district == null &&
+                        current.root.direction == step.direction &&
+                        step.length < 14)
+                    {
+                        step.length++;
+                        current = current.root;
+                    }
+                }
                 steps.Push(step);
                 current = current.root;
             } while (current != null);
@@ -276,7 +317,7 @@ namespace kolpet.MazeSolver
             while (steps.Count > 0)
             {
                 current = steps.Pop();
-                if (current.rotation == null)
+                if (current.district == null)
                 {
                     builder.AppendLine("\t<Step>");
                     builder.AppendLine($"\t\t<Direction>{(int)current.direction!}</Direction>");
@@ -286,7 +327,7 @@ namespace kolpet.MazeSolver
                 else
                 {
                     builder.AppendLine("\t<Rotate>");
-                    builder.AppendLine($"\t\t<District>{(int)current.rotation}</District>");
+                    builder.AppendLine($"\t\t<District>{(int)current.district}</District>");
                     builder.AppendLine($"\t\t<Direction>{(int)current.direction!}</Direction>");
                     builder.AppendLine("\t</Rotate>");
                 }
@@ -385,6 +426,8 @@ namespace kolpet.MazeSolver
 
     public interface IMaze
     {
+        int Level { get; }
+
         Tile this[int row, int column] { get; }
 
         Tile this[Point point] { get; }
@@ -449,15 +492,9 @@ namespace kolpet.MazeSolver
             tiles[End.x, End.y] = Tile.End;
         }
 
-        public IMaze Rotate(District district, Direction direction)
-        {
-            return new MazeView(this).Rotate(district, direction);
-        }
+        public IMaze Rotate(District district, Direction direction) => this.RotateCopy(district, direction);
 
-        public IMaze Trigger(Point trap)
-        {
-            return new MazeView(this).Trigger(trap);
-        }
+        public IMaze Trigger(Point trap) => this.TriggerCopy(trap);
 
         public void Walk(Point point) => walked[point.x, point.y] = true;
 
@@ -471,6 +508,8 @@ namespace kolpet.MazeSolver
         List<Point> triggered;
         int[] rotations; // 0: base, 1: right, 2: down, 3: left
         bool[,] walked = new bool[17, 17];
+
+        public int Level => maze.Level;
 
         public MazeView(Maze maze)
         {
@@ -505,7 +544,6 @@ namespace kolpet.MazeSolver
         public Point Start => maze.Start;
 
         public Point End => maze.End;
-
         public IMaze Rotate(District district, Direction direction)
         {
             if (direction == Direction.Right)
@@ -647,12 +685,58 @@ namespace kolpet.MazeSolver
 
         public static bool IsDistrictBorder(this Point point)
         {
-            return point.x % 5 == 0 || point.x % 5 == 4 || point.y % 5 == 0 || point.y % 5 == 4;
+            return point.x % 5 == 0 || point.x % 5 == 1 || point.y % 5 == 0 || point.y % 5 == 1; // starts from 1
+        }
+
+        public static District GetNeighbourDistrict(this Point point, Direction direction)
+        {
+            int district = (int)GetDistrict(point.x, point.y);
+            if (point.x % 5 == 1 && district > 2 && direction == Direction.Up)
+            {
+                return (District)(district - 3);
+            }
+            if (point.x % 5 == 0 && district < 7 && direction == Direction.Down)
+            {
+                return (District)(district + 3);
+            }
+            if (point.y % 5 == 1 && district % 3 != 1 && direction == Direction.Left)
+            {
+                return (District)((district + 2) % 3);
+            }
+            if (point.y % 5 == 0 && district % 3 != 0 && direction == Direction.Right)
+            {
+                return (District)((district + 1) % 3);
+            }
+            return District.Outside;
         }
 
         public static bool IsValid(this Tile tile)
         {
             return tile == Tile.Empty || tile == Tile.Trap || tile == Tile.End;
+        }
+
+        public static IMaze RotateCopy(this IMaze maze, District district, Direction direction)
+        {
+            if (maze is Maze)
+            {
+                return new MazeView((Maze)maze).Rotate(district, direction);
+            }
+            else
+            {
+                return new MazeView((MazeView)maze).Rotate(district, direction);
+            }
+        }
+
+        public static IMaze TriggerCopy(this IMaze maze, Point trap)
+        {
+            if (maze is Maze)
+            {
+                return new MazeView((Maze)maze).Trigger(trap);
+            }
+            else
+            {
+                return new MazeView((MazeView)maze).Trigger(trap);
+            }
         }
     }
 }

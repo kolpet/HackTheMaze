@@ -1329,107 +1329,31 @@ namespace kolpet.MazeSolver
 	</Step>
 	<Step>
 		<Direction>4</Direction>
-		<CellNumber>3</CellNumber>
+		<CellNumber>2</CellNumber>
+	</Step>
+	<Rotate>
+		<District>6</District>
+		<Direction>2</Direction>
+	</Rotate>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>5</CellNumber>
 	</Step>
 	<Step>
 		<Direction>1</Direction>
 		<CellNumber>2</CellNumber>
 	</Step>
+	<Rotate>
+		<District>9</District>
+		<Direction>2</Direction>
+	</Rotate>
 	<Step>
-		<Direction>3</Direction>
-		<CellNumber>1</CellNumber>
-	</Step>
-	<Step>
-		<Direction>1</Direction>
+		<Direction>4</Direction>
 		<CellNumber>4</CellNumber>
 	</Step>
 	<Step>
-		<Direction>3</Direction>
-		<CellNumber>2</CellNumber>
-	</Step>
-	<Step>
 		<Direction>1</Direction>
-		<CellNumber>2</CellNumber>
-	</Step>
-	<Step>
-		<Direction>4</Direction>
-		<CellNumber>6</CellNumber>
-	</Step>
-	<Step>
-		<Direction>2</Direction>
-		<CellNumber>2</CellNumber>
-	</Step>
-	<Step>
-		<Direction>4</Direction>
 		<CellNumber>3</CellNumber>
-	</Step>
-	<Step>
-		<Direction>2</Direction>
-		<CellNumber>6</CellNumber>
-	</Step>
-	<Step>
-		<Direction>4</Direction>
-		<CellNumber>1</CellNumber>
-	</Step>
-	<Step>
-		<Direction>2</Direction>
-		<CellNumber>4</CellNumber>
-	</Step>
-	<Step>
-		<Direction>4</Direction>
-		<CellNumber>2</CellNumber>
-	</Step>
-	<Step>
-		<Direction>2</Direction>
-		<CellNumber>1</CellNumber>
-	</Step>
-	<Step>
-		<Direction>4</Direction>
-		<CellNumber>3</CellNumber>
-	</Step>
-	<Step>
-		<Direction>1</Direction>
-		<CellNumber>2</CellNumber>
-	</Step>
-	<Step>
-		<Direction>3</Direction>
-		<CellNumber>1</CellNumber>
-	</Step>
-	<Step>
-		<Direction>1</Direction>
-		<CellNumber>4</CellNumber>
-	</Step>
-	<Step>
-		<Direction>3</Direction>
-		<CellNumber>2</CellNumber>
-	</Step>
-	<Step>
-		<Direction>1</Direction>
-		<CellNumber>2</CellNumber>
-	</Step>
-	<Step>
-		<Direction>4</Direction>
-		<CellNumber>6</CellNumber>
-	</Step>
-	<Step>
-		<Direction>2</Direction>
-		<CellNumber>2</CellNumber>
-	</Step>
-	<Step>
-		<Direction>4</Direction>
-		<CellNumber>3</CellNumber>
-	</Step>
-	<Step>
-		<Direction>2</Direction>
-		<CellNumber>8</CellNumber>
-	</Step>
-	<Step>
-		<Direction>4</Direction>
-		<CellNumber>2</CellNumber>
-	</Step>
-	<Step>
-		<Direction>1</Direction>
-		<CellNumber>7</CellNumber>
 	</Step>
 	<Step>
 		<Direction>4</Direction>
@@ -1655,6 +1579,7 @@ namespace kolpet.MazeSolver
                 }
                 int expectedSteps = CountSteps(expectedResult);
                 Logger.LogMessage($"expected steps: {expectedSteps}; actual steps: {actualSteps}");
+                Logger.LogMessage(actualResult);
 
                 Assert.IsTrue(actualSteps <= expectedSteps, "test performed worse than previous best");
                 Assert.AreEqual(expectedSteps, actualSteps, "test performed better than previous best, adjust test");
@@ -1662,9 +1587,8 @@ namespace kolpet.MazeSolver
             else
             {
                 Logger.LogMessage($"steps: {actualSteps}");
+                Logger.LogMessage(actualResult);
             }
-
-            Logger.LogMessage(actualResult);
         }
 
         private int CountSteps(string result) 
