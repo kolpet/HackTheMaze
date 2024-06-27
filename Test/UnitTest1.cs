@@ -1477,6 +1477,153 @@ namespace kolpet.MazeSolver
             EvaluateResult(string.Empty, result);
         }
 
+        [TestMethod]
+        public void TestExtensions()
+        {
+            // Rotate
+            {
+                Direction dir = Direction.Up;
+
+                dir = dir.Rotate(Direction.Right);
+                Assert.AreEqual(Direction.Right, dir);
+                dir = dir.Rotate(Direction.Right);
+                Assert.AreEqual(Direction.Down, dir);
+                dir = dir.Rotate(Direction.Right);
+                Assert.AreEqual(Direction.Left, dir);
+                dir = dir.Rotate(Direction.Right);
+                Assert.AreEqual(Direction.Up, dir);
+
+                dir = dir.Rotate(Direction.Left);
+                Assert.AreEqual(Direction.Left, dir);
+                dir = dir.Rotate(Direction.Left);
+                Assert.AreEqual(Direction.Down, dir);
+                dir = dir.Rotate(Direction.Left);
+                Assert.AreEqual(Direction.Right, dir);
+                dir = dir.Rotate(Direction.Left);
+                Assert.AreEqual(Direction.Up, dir);
+
+                dir = dir.Rotate(Direction.Down);
+                Assert.AreEqual(Direction.Down, dir);
+                dir = dir.Rotate(Direction.Down);
+                Assert.AreEqual(Direction.Up, dir);
+
+                dir = Direction.Right;
+
+                dir = dir.Rotate(Direction.Down);
+                Assert.AreEqual(Direction.Left, dir);
+                dir = dir.Rotate(Direction.Down);
+                Assert.AreEqual(Direction.Right, dir);
+            }
+
+            // GetDistrict
+            {
+                Assert.AreEqual(District.Outside, Extensions.GetDistrict(0, 0));
+                Assert.AreEqual(District.Outside, Extensions.GetDistrict(0, 5));
+                Assert.AreEqual(District.Outside, Extensions.GetDistrict(0, 16));
+                Assert.AreEqual(District.Outside, Extensions.GetDistrict(5, 0));
+                Assert.AreEqual(District.Outside, Extensions.GetDistrict(5, 16));
+                Assert.AreEqual(District.Outside, Extensions.GetDistrict(16, 0));
+                Assert.AreEqual(District.Outside, Extensions.GetDistrict(16, 5));
+                Assert.AreEqual(District.Outside, Extensions.GetDistrict(16, 16));
+
+                Assert.AreEqual(District.TopLeft, Extensions.GetDistrict(1, 1));
+                Assert.AreEqual(District.TopLeft, Extensions.GetDistrict(5, 5));
+
+                Assert.AreEqual(District.Top, Extensions.GetDistrict(1, 6));
+                Assert.AreEqual(District.Top, Extensions.GetDistrict(5, 10));
+
+                Assert.AreEqual(District.TopRight, Extensions.GetDistrict(1, 11));
+                Assert.AreEqual(District.TopRight, Extensions.GetDistrict(5, 15));
+
+                Assert.AreEqual(District.Left, Extensions.GetDistrict(6, 1));
+                Assert.AreEqual(District.Left, Extensions.GetDistrict(10, 5));
+
+                Assert.AreEqual(District.Middle, Extensions.GetDistrict(6, 6));
+                Assert.AreEqual(District.Middle, Extensions.GetDistrict(10, 10));
+
+                Assert.AreEqual(District.Right, Extensions.GetDistrict(6, 11));
+                Assert.AreEqual(District.Right, Extensions.GetDistrict(10, 15));
+
+                Assert.AreEqual(District.BottomLeft, Extensions.GetDistrict(11, 1));
+                Assert.AreEqual(District.BottomLeft, Extensions.GetDistrict(15, 5));
+
+                Assert.AreEqual(District.Bottom, Extensions.GetDistrict(11, 6));
+                Assert.AreEqual(District.Bottom, Extensions.GetDistrict(15, 10));
+
+                Assert.AreEqual(District.BottomRight, Extensions.GetDistrict(11, 11));
+                Assert.AreEqual(District.BottomRight, Extensions.GetDistrict(15, 15));
+            }
+
+            // AdjustPoint
+            {
+                /* .1...  District.TopLeft, CodeRotation.Right
+                 * ....4  1: 1,2
+                 * .....  2: 4,1
+                 * 2....  3: 5,4
+                 * ...3.  4: 2,5
+                 */
+                int row = 1; int column = 2;
+                Extensions.AdjustPoint(CodeRotation.Up, ref row, ref column);
+                Assert.AreEqual(1, row);
+                Assert.AreEqual(2, column);
+
+                Extensions.AdjustPoint(CodeRotation.Right, ref row, ref column);
+                Assert.AreEqual(4, row);
+                Assert.AreEqual(1, column);
+                Extensions.AdjustPoint(CodeRotation.Right, ref row, ref column);
+                Assert.AreEqual(5, row);
+                Assert.AreEqual(4, column);
+                Extensions.AdjustPoint(CodeRotation.Right, ref row, ref column);
+                Assert.AreEqual(2, row);
+                Assert.AreEqual(5, column);
+                Extensions.AdjustPoint(CodeRotation.Right, ref row, ref column);
+                Assert.AreEqual(1, row);
+                Assert.AreEqual(2, column);
+
+                Extensions.AdjustPoint(CodeRotation.Left, ref row, ref column);
+                Assert.AreEqual(2, row);
+                Assert.AreEqual(5, column);
+                Extensions.AdjustPoint(CodeRotation.Left, ref row, ref column);
+                Assert.AreEqual(5, row);
+                Assert.AreEqual(4, column);
+                Extensions.AdjustPoint(CodeRotation.Left, ref row, ref column);
+                Assert.AreEqual(4, row);
+                Assert.AreEqual(1, column);
+                Extensions.AdjustPoint(CodeRotation.Left, ref row, ref column);
+                Assert.AreEqual(1, row);
+                Assert.AreEqual(2, column);
+            }
+
+            // PreviewRotation
+            {
+                /* .X...  District.TopLeft
+                 * HX...
+                 * .X...
+                 * .X...
+                 * .X...
+                 */
+                TestMaze testMaze = new TestMaze(3, new Point(2, 1), new Point(2, 17))
+                    .DrawWalls(2, 3, 6, 3)
+                    .AddTrap(3, 2);
+
+                Maze maze = new Maze(testMaze.Print());
+
+                Assert.AreEqual(Tile.Empty, maze.PreviewRotation(CodeRotation.Right, 1, 1));
+                Assert.AreEqual(Tile.Trap, maze.PreviewRotation(CodeRotation.Right, 1, 4));
+                for (int i = 1; i <= 5; i++)
+                {
+                    Assert.AreEqual(Tile.Wall, maze.PreviewRotation(CodeRotation.Right, 2, i));
+                }
+
+                Assert.AreEqual(Tile.Empty, maze[1, 1]);
+                Assert.AreEqual(Tile.Trap, maze[2, 1]);
+                for (int i = 1; i <= 5; i++)
+                {
+                    Assert.AreEqual(Tile.Wall, maze[i, 2]);
+                }
+            }
+        }
+
         private string RunTest(string xml)
         {
             Task<string> solver = Task.Run(() =>
@@ -1553,9 +1700,9 @@ namespace kolpet.MazeSolver
                 End = end;
             }
 
-            public TestMaze AddTrap(int x1, int x2)
+            public TestMaze AddTrap(int x, int y)
             {
-                Traps.Add(new Point(x1, x2));
+                Traps.Add(new Point(x, y));
                 return this;
             }
 

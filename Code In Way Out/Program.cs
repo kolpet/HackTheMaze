@@ -16,7 +16,7 @@ namespace kolpet.MazeSolver
         {
             string xml = args.Length == 1 ? args[0] : File.ReadAllText("xml.txt");
             Maze maze = new Maze(xml);
-            Agency agency = new Agency(maze);
+            Agency agency = args.Length == 1 ? new Agency(maze) : new Agency(maze, 75);
             Agent best = agency.Solve();
             Console.Write(best.Result());
         }
@@ -26,8 +26,17 @@ namespace kolpet.MazeSolver
     {
         PriorityQueue<Agent, double> agents = new PriorityQueue<Agent, double>();
         Maze maze;
+        bool visualize;
+        int delay;
 
         public Step FirstStep { get; }
+
+        public Agency(Maze maze, int delay)
+            : this(maze)
+        {
+            visualize = true;
+            this.delay = delay;
+        }
 
         public Agency(Maze maze)
         {
@@ -69,7 +78,10 @@ namespace kolpet.MazeSolver
             {
                 agent = agents.Dequeue();
                 agent.Step();
-                //Visualize();
+                if (visualize)
+                {
+                    Visualize();
+                }
             } while (agent.Position != maze.End);
             return agent;
         }
@@ -120,7 +132,7 @@ namespace kolpet.MazeSolver
             {
                 Console.WriteLine(text[i]);
             }
-            Thread.Sleep(50);
+            Thread.Sleep(delay);
         }
     }
 
@@ -304,6 +316,14 @@ namespace kolpet.MazeSolver
         Right = 2,// 1 2  0 1
         Up = 3,   //  4    3
         Down = 4,
+    }
+
+    public enum CodeRotation
+    {
+        Up = 0,
+        Right = 1,
+        Down = 2,
+        Left = 3,
     }
 
     public enum District
@@ -508,50 +528,75 @@ namespace kolpet.MazeSolver
             return this;
         }
 
-        private void AdjustPoint(ref int row, ref int column)
-        {
-            District district = this.GetDistrict(row, column);
-            if (district == District.Outside) return;
-            if (rotations[(int)district] == 0) return;
-
-            int dx = row % 5; int dy = column % 5;
-            if (rotations[(int)district] == 1)
-            {
-                dy = 4 - dx;
-                dx = dy;
-            }
-
-            if (rotations[(int)district] >= 2) // also reverse 3
-            {
-                dx = (4 - dx) % 5;
-                dy = (4 - dy) % 5;
-            }
-            row = row - (row % 5) + dx;
-            column = column - (column % 5) + dy;
-        }
-
         public void Walk(Point point) => walked[point.x, point.y] = true;
 
         public bool IsWalked(Point point) => walked[point.x, point.y];
+
+        public void AdjustPoint(ref int x, ref int y)
+        {
+            District district = Extensions.GetDistrict(x, y);
+            if (district == District.Outside) return;
+
+            Extensions.AdjustPoint((CodeRotation)rotations[(int)district], ref x, ref y);
+        }
     }
 
     public static class Extensions
     {
-        private static readonly List<Direction> LOOP = new() { Direction.Up, Direction.Right, Direction.Down, Direction.Left };
+        public static CodeRotation Convert(this Direction rotation)
+        {
+            return Enum.Parse<CodeRotation>(rotation.ToString());
+        }
+        public static Direction Convert(this CodeRotation rotation)
+        {
+            return Enum.Parse<Direction>(rotation.ToString());
+        }
 
         public static Direction Rotate(this Direction direction, Direction rotation)
         {
-            int i = LOOP.IndexOf(direction);
+            int i = (int)direction.Convert();
             int di = rotation == Direction.Right ? 1 : (rotation == Direction.Left ? 3 : 2);
-            return LOOP[(i + di) % 4];
+            CodeRotation result = (CodeRotation)((i + di) % 4);
+            return result.Convert();
         }
 
-        public static District GetDistrict(this IMaze maze, int row, int column)
+        public static District GetDistrict(int row, int column)
         {
             if (row == 0 || row == 16 || column == 0 || column == 16) return District.Outside;
             int x = row; int y = column;
             int district = (((x - 1) / 5) * 3) + ((y - 1) / 5) + 1;
             return (District)district;
+        }
+
+        public static void AdjustPoint(CodeRotation rotation, ref int row, ref int column)
+        {
+            if (rotation == CodeRotation.Up) return;
+
+            int drow = row - 1; int dcolumn = column - 1;
+            int dx = drow % 5; int dy = dcolumn % 5;
+            if (rotation == CodeRotation.Left || rotation == CodeRotation.Right) // rotate district to left, show tile to right
+            {
+                int temp = 4 - dx;
+                dx = dy;
+                dy = temp;
+            }
+
+            if (rotation == CodeRotation.Right || rotation == CodeRotation.Down) // inverse for Right and Down rotations
+            {
+                dx = (4 - dx) % 5;
+                dy = (4 - dy) % 5;
+            }
+            row = row - (drow % 5) + dx;
+            column = column - (dcolumn % 5) + dy;
+        }
+
+        public static Tile PreviewRotation(this IMaze maze, CodeRotation rotation, int x, int y)
+        {
+            District district = GetDistrict(x, y);
+            if (district == District.Outside) return maze[x, y];
+
+            AdjustPoint(rotation, ref x, ref y);
+            return maze[x, y];
         }
 
         public static Point GetNeighbour(this Point point, Direction direction)
