@@ -1,4 +1,6 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting.Logging;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace kolpet.MazeSolver
 {
@@ -1199,143 +1201,287 @@ namespace kolpet.MazeSolver
 </Maze>";
 
         private string Level1Result = @"<Actions>
-    	<Step>
-    		<Direction>2</Direction>
-    		<CellNumber>1</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>4</Direction>
-    		<CellNumber>3</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>2</Direction>
-    		<CellNumber>2</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>3</Direction>
-    		<CellNumber>6</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>2</Direction>
-    		<CellNumber>3</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>3</Direction>
-    		<CellNumber>2</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>2</Direction>
-    		<CellNumber>7</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>4</Direction>
-    		<CellNumber>1</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>2</Direction>
-    		<CellNumber>2</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>4</Direction>
-    		<CellNumber>2</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>2</Direction>
-    		<CellNumber>1</CellNumber>
-    	</Step>
-    </Actions>
-".Replace(" ", string.Empty);
+	<Step>
+		<Direction>2</Direction>
+		<CellNumber>1</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>3</CellNumber>
+	</Step>
+	<Step>
+		<Direction>2</Direction>
+		<CellNumber>2</CellNumber>
+	</Step>
+	<Step>
+		<Direction>3</Direction>
+		<CellNumber>6</CellNumber>
+	</Step>
+	<Step>
+		<Direction>2</Direction>
+		<CellNumber>3</CellNumber>
+	</Step>
+	<Step>
+		<Direction>3</Direction>
+		<CellNumber>2</CellNumber>
+	</Step>
+	<Step>
+		<Direction>2</Direction>
+		<CellNumber>7</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>1</CellNumber>
+	</Step>
+	<Step>
+		<Direction>2</Direction>
+		<CellNumber>2</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>2</CellNumber>
+	</Step>
+	<Step>
+		<Direction>2</Direction>
+		<CellNumber>1</CellNumber>
+	</Step>
+</Actions>
+";
         private string Level2Result = @"<Actions>
-    	<Step>
-    		<Direction>4</Direction>
-    		<CellNumber>1</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>1</Direction>
-    		<CellNumber>5</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>4</Direction>
-    		<CellNumber>2</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>2</Direction>
-    		<CellNumber>5</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>4</Direction>
-    		<CellNumber>2</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>1</Direction>
-    		<CellNumber>3</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>4</Direction>
-    		<CellNumber>2</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>1</Direction>
-    		<CellNumber>4</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>4</Direction>
-    		<CellNumber>4</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>2</Direction>
-    		<CellNumber>3</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>4</Direction>
-    		<CellNumber>2</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>1</Direction>
-    		<CellNumber>3</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>4</Direction>
-    		<CellNumber>2</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>2</Direction>
-    		<CellNumber>7</CellNumber>
-    	</Step>
-    	<Step>
-    		<Direction>4</Direction>
-    		<CellNumber>1</CellNumber>
-    	</Step>
-    </Actions>
-".Replace(" ", string.Empty);
-        private string Level3Result = @"".Replace(" ", string.Empty);
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>1</CellNumber>
+	</Step>
+	<Step>
+		<Direction>1</Direction>
+		<CellNumber>5</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>2</CellNumber>
+	</Step>
+	<Step>
+		<Direction>2</Direction>
+		<CellNumber>5</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>2</CellNumber>
+	</Step>
+	<Step>
+		<Direction>1</Direction>
+		<CellNumber>3</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>2</CellNumber>
+	</Step>
+	<Step>
+		<Direction>1</Direction>
+		<CellNumber>4</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>4</CellNumber>
+	</Step>
+	<Step>
+		<Direction>2</Direction>
+		<CellNumber>3</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>2</CellNumber>
+	</Step>
+	<Step>
+		<Direction>1</Direction>
+		<CellNumber>3</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>2</CellNumber>
+	</Step>
+	<Step>
+		<Direction>2</Direction>
+		<CellNumber>7</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>1</CellNumber>
+	</Step>
+</Actions>
+";
+        private string Level3Result = @"<Actions>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>1</CellNumber>
+	</Step>
+	<Step>
+		<Direction>2</Direction>
+		<CellNumber>4</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>2</CellNumber>
+	</Step>
+	<Step>
+		<Direction>2</Direction>
+		<CellNumber>1</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>3</CellNumber>
+	</Step>
+	<Step>
+		<Direction>1</Direction>
+		<CellNumber>2</CellNumber>
+	</Step>
+	<Step>
+		<Direction>3</Direction>
+		<CellNumber>1</CellNumber>
+	</Step>
+	<Step>
+		<Direction>1</Direction>
+		<CellNumber>4</CellNumber>
+	</Step>
+	<Step>
+		<Direction>3</Direction>
+		<CellNumber>2</CellNumber>
+	</Step>
+	<Step>
+		<Direction>1</Direction>
+		<CellNumber>2</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>6</CellNumber>
+	</Step>
+	<Step>
+		<Direction>2</Direction>
+		<CellNumber>2</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>3</CellNumber>
+	</Step>
+	<Step>
+		<Direction>2</Direction>
+		<CellNumber>6</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>1</CellNumber>
+	</Step>
+	<Step>
+		<Direction>2</Direction>
+		<CellNumber>4</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>2</CellNumber>
+	</Step>
+	<Step>
+		<Direction>2</Direction>
+		<CellNumber>1</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>3</CellNumber>
+	</Step>
+	<Step>
+		<Direction>1</Direction>
+		<CellNumber>2</CellNumber>
+	</Step>
+	<Step>
+		<Direction>3</Direction>
+		<CellNumber>1</CellNumber>
+	</Step>
+	<Step>
+		<Direction>1</Direction>
+		<CellNumber>4</CellNumber>
+	</Step>
+	<Step>
+		<Direction>3</Direction>
+		<CellNumber>2</CellNumber>
+	</Step>
+	<Step>
+		<Direction>1</Direction>
+		<CellNumber>2</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>6</CellNumber>
+	</Step>
+	<Step>
+		<Direction>2</Direction>
+		<CellNumber>2</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>3</CellNumber>
+	</Step>
+	<Step>
+		<Direction>2</Direction>
+		<CellNumber>8</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>2</CellNumber>
+	</Step>
+	<Step>
+		<Direction>1</Direction>
+		<CellNumber>7</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>2</CellNumber>
+	</Step>
+</Actions>
+";
         #endregion
 
         [TestMethod]
         public void TestLevel1()
         {
-            Maze maze = new Maze(Level1Xml);
-            Agency agency = new Agency(maze);
-            Agent best = agency.Solve();
-            Assert.AreEqual(Level1Result, best.Result().Replace(" ", string.Empty));
+            string result = RunTest(Level1Xml);
+            EvaluateResult(Level1Result, result);
         }
 
         [TestMethod]
         public void TestLevel2()
         {
-            Maze maze = new Maze(Level2Xml);
-            Agency agency = new Agency(maze);
-            Agent best = agency.Solve();
-            Assert.AreEqual(Level2Result, best.Result().Replace(" ", string.Empty));
-            
+            string result = RunTest(Level2Xml);
+            EvaluateResult(Level2Result, result);
         }
 
         [TestMethod]
         public void TestLevel3()
         {
-            Task<string> solver = new Task<string>(() =>
+            string result = RunTest(Level3Xml);
+            EvaluateResult(Level3Result, result);
+        }
+
+        [TestMethod]
+        public void TestCustomLevel()
+        {
+            TestMaze testMaze = new TestMaze(3, new Point(2, 1), new Point(2, 17))
+                .DrawWalls(2, 3, 15, 3)
+                .DrawWalls(16, 5, 3, 5)
+                .DrawWalls(2, 7, 15, 7)
+                .DrawWalls(16, 9, 3, 9)
+                .DrawWalls(2, 11, 15, 11)
+                .DrawWalls(16, 13, 3, 13)
+                .DrawWalls(2, 15, 15, 15)
+                .AddTrap(8, 8);
+
+            string result = RunTest(testMaze.Print());
+            EvaluateResult(string.Empty, result);
+        }
+
+        private string RunTest(string xml)
+        {
+            Task<string> solver = Task.Run(() =>
             {
-                Maze maze = new Maze(Level3Xml);
+                Maze maze = new Maze(xml);
                 Agency agency = new Agency(maze);
                 Agent best = agency.Solve();
                 return best.Result();
@@ -1345,17 +1491,129 @@ namespace kolpet.MazeSolver
 
             Task.WaitAny(solver, timeout);
 
-            try
+            Assert.IsFalse(solver.IsFaulted, "test threw exception, ex: " + solver.Exception!.InnerException);
+            Assert.IsTrue(solver.IsCompleted, "test timeouted after 60s");
+
+            return solver.Result;
+        }
+
+        private void EvaluateResult(string expectedResult, string actualResult)
+        {
+            int actualSteps = CountSteps(actualResult);
+            if (!string.IsNullOrEmpty(expectedResult))
             {
-                Assert.IsFalse(solver.IsFaulted);
-                Assert.IsTrue(solver.IsCompleted);
+                if (actualResult != expectedResult)
+                {
+                    Logger.LogMessage("result deviates from expected result");
+                }
+                int expectedSteps = CountSteps(expectedResult);
+                Logger.LogMessage($"expected steps: {expectedSteps}; actual steps: {actualSteps}");
+
+                Assert.IsTrue(actualSteps <= expectedSteps, "test performed worse than previous best");
+                Assert.AreEqual(expectedSteps, actualSteps, "test performed better than previous best, adjust test");
             }
-            catch
+            else
             {
-                throw;
+                Logger.LogMessage($"steps: {actualSteps}");
             }
 
-            Logger.LogMessage(solver.Result);
+            Logger.LogMessage(actualResult);
+        }
+
+        private int CountSteps(string result) 
+        {
+            MatchCollection matches = Regex.Matches(result, "<Step>\\s+\\S+\\s+\\D+(\\d+)");
+            int steps = 0;
+            foreach (Match match in matches)
+            {
+                steps += int.Parse(match.Groups[1].Value);
+            }
+
+            matches = Regex.Matches(result, "<Rotate>");
+            steps += matches.Count * 5;
+            return steps;
+        }
+
+        private class TestMaze
+        {
+            public int Level { get; set; }
+
+            public Point Start { get; private set; } = new Point(0, 0);
+
+            public Point End { get; private set; } = new Point(0, 0);
+
+            public List<Point> Walls { get; private set; } = new List<Point>();
+
+            public List<Point> Traps { get; private set; } = new List<Point>();
+
+            public TestMaze(int level, Point start, Point end)
+            {
+                Level = level;
+                Start = start;
+                End = end;
+            }
+
+            public TestMaze AddTrap(int x1, int x2)
+            {
+                Traps.Add(new Point(x1, x2));
+                return this;
+            }
+
+            public TestMaze DrawWalls(int x1, int y1, int x2, int y2)
+            {
+                if (x1 != x2 && y1 != y2) return this;
+                int dx = Math.Sign(x2 - x1);
+                int dy = Math.Sign(y2 - y1);
+                int i = x1; int j = y1;
+                while (i != x2 || j != y2)
+                {
+                    Point p = new Point(i, j);
+                    if (!Walls.Contains(p))
+                    {
+                        Walls.Add(p);
+                    }
+                    i += dx; j += dy;
+                }
+                Point p2 = new Point(x2, y2);
+                if (!Walls.Contains(p2))
+                {
+                    Walls.Add(p2);
+                }
+                return this;
+            }
+
+            public string Print()
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.AppendLine( "<Maze>");
+                sb.AppendLine($"\t<Level>{Level}</Level>");
+                sb.AppendLine( "\t<StartPoint>");
+                sb.AppendLine($"\t\t<Row>{Start.x}</Row>");
+                sb.AppendLine($"\t\t<Column>{Start.y}</Column>");
+                sb.AppendLine( "\t</StartPoint>");
+                sb.AppendLine( "\t<EscapePoint>");
+                sb.AppendLine($"\t\t<Row>{End.x}</Row>");
+                sb.AppendLine($"\t\t<Column>{End.y}</Column>");
+                sb.AppendLine( "\t</EscapePoint>");
+                sb.AppendLine( "\t<InsideItems>");
+                foreach(Point point in Walls)
+                {
+                    sb.AppendLine("\t\t<Wall>");
+                    sb.AppendLine($"\t\t\t<Row>{point.x}</Row>");
+                    sb.AppendLine($"\t\t\t<Column>{point.y}</Column>");
+                    sb.AppendLine("\t\t</Wall>");
+                }
+                foreach (Point point in Traps)
+                {
+                    sb.AppendLine("\t\t<Trap>");
+                    sb.AppendLine($"\t\t\t<Row>{point.x}</Row>");
+                    sb.AppendLine($"\t\t\t<Column>{point.y}</Column>");
+                    sb.AppendLine("\t\t</Trap>");
+                }
+                sb.AppendLine( "\t</InsideItems>");
+                sb.AppendLine( "</Maze>");
+                return sb.ToString();
+            }
         }
     }
 }
