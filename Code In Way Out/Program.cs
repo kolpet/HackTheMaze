@@ -14,7 +14,8 @@ namespace kolpet.MazeSolver
     {
         public static void Main(string[] args)
         {
-            Maze maze = new Maze(args[0]);
+            string xml = args.Length == 1 ? args[0] : File.ReadAllText("xml.txt");
+            Maze maze = new Maze(xml);
             Agency agency = new Agency(maze);
             Agent best = agency.Solve();
             Console.Write(best.Result());
@@ -24,11 +25,11 @@ namespace kolpet.MazeSolver
     public class Agency
     {
         PriorityQueue<Agent, double> agents = new PriorityQueue<Agent, double>();
-        IMaze maze;
+        Maze maze;
 
         public Step FirstStep { get; }
 
-        public Agency(IMaze maze)
+        public Agency(Maze maze)
         {
             this.maze = maze;
 
@@ -68,6 +69,7 @@ namespace kolpet.MazeSolver
             {
                 agent = agents.Dequeue();
                 agent.Step();
+                //Visualize();
             } while (agent.Position != maze.End);
             return agent;
         }
@@ -76,6 +78,49 @@ namespace kolpet.MazeSolver
         {
             double weight = agent.Steps + agent.Position.GetDistance(maze.End);
             agents.Enqueue(agent, weight);
+        }
+
+        public void Visualize()
+        {
+            StringBuilder[] text = new StringBuilder[17];
+            for (int i = 0; i < 17; i++)
+            {
+                text[i] = new StringBuilder();
+                for (int j = 0; j < 17; j++)
+                {
+                    char ch = ' ';
+                    switch (maze[i, j])
+                    {
+                        case Tile.Wall:
+                            ch = 'X';
+                            break;
+                        case Tile.Start:
+                            ch = 'S';
+                            break;
+                        case Tile.End:
+                            ch = 'E';
+                            break;
+                        case Tile.Trap:
+                            ch = 'H';
+                            break;
+                    }
+                    if (maze.IsWalked(i, j))
+                    {
+                        ch = '*';
+                    }
+                    text[i].Append(ch);
+                }
+            }
+            foreach (var items in agents.UnorderedItems)
+            {
+                text[items.Element.Position.x][items.Element.Position.y] = 'A';
+            }
+            Console.Clear();
+            for (int i = 0; i < 17; i++)
+            {
+                Console.WriteLine(text[i]);
+            }
+            Thread.Sleep(50);
         }
     }
 
@@ -158,12 +203,13 @@ namespace kolpet.MazeSolver
 
         public void Step()
         {
-            if (Steps > 100) return;
+            if (Steps > 200) return;
 
             Direction direction = plannedStep.direction;
             Position.Move(direction);
             Steps++;
             plannedStep.id = id;
+            maze.Walk(Position);
 
             if (Position == maze.End) return;
             if (maze[Position] == Tile.Trap)
@@ -179,8 +225,9 @@ namespace kolpet.MazeSolver
             Direction desire = Position.GetDirection(maze.End);
             for (int i = 0; i < 4; i++)
             {
-                if (maze[Position.GetNeighbour(desire)].IsValid() &&
-                    desire.Rotate(Direction.Down) != plannedStep.direction)
+                Point neighbour = Position.GetNeighbour(desire);
+                if (maze[neighbour].IsValid() &&
+                    !maze.IsWalked(neighbour))
                 {
                     choices.Enqueue(new Step(plannedStep, desire));
                 }
@@ -191,6 +238,7 @@ namespace kolpet.MazeSolver
             {
                 agency.Enqueue(this);
                 plannedStep = choices.Dequeue();
+
                 while (choices.Count > 0)
                 {
                     agency.Enqueue(new Agent(this, choices.Dequeue()));
@@ -206,7 +254,7 @@ namespace kolpet.MazeSolver
             do
             {
                 Step step = new Step(current.direction);
-                while (current.root != null && current.root.direction == step.direction) { step.length++; current = current.root; }
+                while (current.root != null && current.root.direction == step.direction && step.length < 14) { step.length++; current = current.root; }
                 steps.Push(step);
                 current = current.root;
             } while (current != null);
@@ -298,6 +346,21 @@ namespace kolpet.MazeSolver
         {
             return $"[x={x+1}]; [y={y+1}]";
         }
+
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(this, obj))
+            {
+                return true;
+            }
+
+            if (ReferenceEquals(obj, null))
+            {
+                return false;
+            }
+
+            return this == (Point)obj;
+        }
     }
 
     public interface IMaze
@@ -313,11 +376,16 @@ namespace kolpet.MazeSolver
         IMaze Rotate(District district, Direction direction);
 
         IMaze Trigger(Point trap);
+
+        void Walk(Point point);
+
+        bool IsWalked(Point point);
     }
 
     public class Maze : IMaze
     {
         Tile[,] tiles = new Tile[17, 17];
+        bool[,] walked = new bool[17, 17];
 
         public int Level { get; private set; }
 
@@ -370,6 +438,11 @@ namespace kolpet.MazeSolver
         {
             return new MazeView(this).Trigger(trap);
         }
+
+        public void Walk(Point point) => walked[point.x, point.y] = true;
+
+        public bool IsWalked(Point point) => walked[point.x, point.y];
+        public bool IsWalked(int x, int y) => walked[x, y];
     }
 
     class MazeView : IMaze
@@ -377,6 +450,7 @@ namespace kolpet.MazeSolver
         Maze maze;
         List<Point> triggered;
         int[] rotations; // 0: base, 1: right, 2: down, 3: left
+        bool[,] walked = new bool[17, 17];
 
         public MazeView(Maze maze)
         {
@@ -438,6 +512,7 @@ namespace kolpet.MazeSolver
         {
             District district = this.GetDistrict(row, column);
             if (district == District.Outside) return;
+            if (rotations[(int)district] == 0) return;
 
             int dx = row % 5; int dy = column % 5;
             if (rotations[(int)district] == 1)
@@ -454,6 +529,10 @@ namespace kolpet.MazeSolver
             row = row - (row % 5) + dx;
             column = column - (column % 5) + dy;
         }
+
+        public void Walk(Point point) => walked[point.x, point.y] = true;
+
+        public bool IsWalked(Point point) => walked[point.x, point.y];
     }
 
     public static class Extensions
