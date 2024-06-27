@@ -1491,7 +1491,7 @@ namespace kolpet.MazeSolver
 
             Task.WaitAny(solver, timeout);
 
-            Assert.IsFalse(solver.IsFaulted, "test threw exception, ex: " + solver.Exception!.InnerException);
+            Assert.IsFalse(solver.IsFaulted, "test threw exception, ex: " + solver.Exception?.InnerException);
             Assert.IsTrue(solver.IsCompleted, "test timeouted after 60s");
 
             return solver.Result;
