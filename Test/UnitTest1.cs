@@ -1317,30 +1317,18 @@ namespace kolpet.MazeSolver
 	</Step>
 	<Step>
 		<Direction>2</Direction>
+		<CellNumber>7</CellNumber>
+	</Step>
+	<Step>
+		<Direction>4</Direction>
+		<CellNumber>7</CellNumber>
+	</Step>
+	<Step>
+		<Direction>1</Direction>
 		<CellNumber>4</CellNumber>
 	</Step>
 	<Step>
 		<Direction>4</Direction>
-		<CellNumber>2</CellNumber>
-	</Step>
-	<Step>
-		<Direction>2</Direction>
-		<CellNumber>1</CellNumber>
-	</Step>
-	<Step>
-		<Direction>4</Direction>
-		<CellNumber>2</CellNumber>
-	</Step>
-	<Rotate>
-		<District>6</District>
-		<Direction>2</Direction>
-	</Rotate>
-	<Step>
-		<Direction>4</Direction>
-		<CellNumber>5</CellNumber>
-	</Step>
-	<Step>
-		<Direction>1</Direction>
 		<CellNumber>2</CellNumber>
 	</Step>
 	<Rotate>

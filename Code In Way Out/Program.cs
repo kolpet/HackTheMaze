@@ -88,7 +88,7 @@ namespace kolpet.MazeSolver
 
         public void Enqueue(Agent agent)
         {
-            double weight = (agent.Steps) * 2 + agent.Position.GetDistance(maze.End);
+            double weight = agent.Steps;
             agents.Enqueue(agent, weight);
         }
 
@@ -196,7 +196,7 @@ namespace kolpet.MazeSolver
         Agency agency;
         IMaze maze;
         Step plannedStep;
-        int rotationLimit = 5;
+        int rotationLimit = 10;
 
         public Point Position { get; private set; }
 
@@ -219,6 +219,7 @@ namespace kolpet.MazeSolver
             Position = copy.Position.Clone();
             Steps = copy.Steps;
             plannedStep = step;
+            rotationLimit = copy.rotationLimit;
             id = counter++;
         }
 
