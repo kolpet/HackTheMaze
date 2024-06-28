@@ -71,6 +71,17 @@ namespace kolpet.MazeSolver
             mazeView = new MazeView(maze);
             Agent agent = new Agent(this, mazeView, maze.Start.Clone(), FirstStep);
             Enqueue(agent);
+
+            if (maze.Level == 3)
+            {
+                District district = Extensions.GetDistrict(start.x, start.y);
+                Step rotateLeft = new Step(district, Direction.Left);
+                agent = new Agent(this, mazeView, maze.Start.Clone(), rotateLeft);
+                Enqueue(agent);
+                Step rotateRight = new Step(district, Direction.Right);
+                agent = new Agent(this, mazeView, maze.Start.Clone(), rotateRight);
+                Enqueue(agent);
+            }
         }
 
         public Agent Solve()
@@ -160,6 +171,12 @@ namespace kolpet.MazeSolver
             this.root = root;
         }
 
+        public Step(District district, Direction rotation)
+        {
+            this.district = district;
+            direction = rotation;
+        }
+
         public Step(Step root, District district, Direction rotation)
         {
             this.root = root;
@@ -246,6 +263,12 @@ namespace kolpet.MazeSolver
             }
 
             if (Position == maze.End) return;
+            if (Position == maze.Start)
+            {
+                plannedStep = new Step(plannedStep, agency.FirstStep.direction);
+                agency.Enqueue(this);
+                return;
+            }
             if (maze[Position] == Tile.Trap)
             {
                 maze = maze.TriggerCopy(Position);
