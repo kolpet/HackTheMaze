@@ -26,6 +26,7 @@ namespace kolpet.MazeSolver
     {
         PriorityQueue<Agent, double> agents = new PriorityQueue<Agent, double>();
         Maze maze;
+        MazeView mazeView;
         bool visualize;
         int delay;
 
@@ -67,7 +68,8 @@ namespace kolpet.MazeSolver
             }
 
             FirstStep = new Step(maze.Start.GetDirection(start!));
-            Agent agent = new Agent(this, maze, maze.Start.Clone(), FirstStep);
+            mazeView = new MazeView(maze);
+            Agent agent = new Agent(this, mazeView, maze.Start.Clone(), FirstStep);
             Enqueue(agent);
         }
 
@@ -116,7 +118,7 @@ namespace kolpet.MazeSolver
                             ch = 'H';
                             break;
                     }
-                    if (maze.IsWalked(i, j))
+                    if (mazeView.IsWalked(i, j))
                     {
                         ch = '*';
                     }
@@ -194,15 +196,15 @@ namespace kolpet.MazeSolver
         static int counter = 0;
         int id;
         Agency agency;
-        IMaze maze;
+        MazeView maze;
         Step plannedStep;
-        int rotationLimit = 10;
+        int rotationLimit = 3;
 
         public Point Position { get; private set; }
 
         public int Steps { get; private set; }
 
-        public Agent(Agency agency, IMaze maze, Point position, Step step)
+        public Agent(Agency agency, MazeView maze, Point position, Step step)
         {
             this.agency = agency;
             this.maze = maze;
@@ -436,29 +438,23 @@ namespace kolpet.MazeSolver
         Point Start { get; }
 
         Point End { get; }
-
-        IMaze Rotate(District district, Direction direction);
-
-        IMaze Trigger(Point trap);
-
-        void Walk(Point point);
-
-        bool IsWalked(Point point);
     }
 
     public class Maze : IMaze
     {
         Tile[,] tiles = new Tile[17, 17];
-        bool[,] walked = new bool[17, 17];
 
         public int Level { get; private set; }
 
         public Tile this[int row, int column] { get => tiles[row, column]; }
+
         public Tile this[Point point] { get => this[point.x, point.y]; }
 
         public Point Start { get; private set; } = new Point(0, 0);
 
         public Point End { get; private set; } = new Point(0, 0);
+
+        public List<MazeView> Cache { get; } = new List<MazeView>();
 
         public Maze(string xml)
         {
@@ -492,38 +488,34 @@ namespace kolpet.MazeSolver
             tiles[Start.x, Start.y] = Tile.Start;
             tiles[End.x, End.y] = Tile.End;
         }
-
-        public IMaze Rotate(District district, Direction direction) => this.RotateCopy(district, direction);
-
-        public IMaze Trigger(Point trap) => this.TriggerCopy(trap);
-
-        public void Walk(Point point) => walked[point.x, point.y] = true;
-
-        public bool IsWalked(Point point) => walked[point.x, point.y];
-        public bool IsWalked(int x, int y) => walked[x, y];
     }
 
-    class MazeView : IMaze
+    public class MazeView : IMaze
     {
-        Maze maze;
-        List<Point> triggered;
-        int[] rotations; // 0: base, 1: right, 2: down, 3: left
         bool[,] walked = new bool[17, 17];
 
-        public int Level => maze.Level;
+        public int Level => Maze.Level;
+
+        public Maze Maze { get; }
+
+        public List<Point> Triggered { get; }
+
+        public int[] Rotations { get; } // 0: base, 1: right, 2: down, 3: left
 
         public MazeView(Maze maze)
         {
-            this.maze = maze;
-            triggered = new List<Point>();
-            rotations = new int[10];
+            Maze = maze;
+            Triggered = new List<Point>();
+            Rotations = new int[10];
+            maze.Cache.Add(this);
         }
 
         public MazeView(MazeView copy)
         {
-            this.maze = copy.maze;
-            triggered = copy.triggered.ToList();
-            rotations = copy.rotations.ToArray();
+            Maze = copy.Maze;
+            Triggered = copy.Triggered.ToList();
+            Rotations = copy.Rotations.ToArray();
+            Maze.Cache.Add(this);
         }
 
         public Tile this[int row, int column]
@@ -531,38 +523,38 @@ namespace kolpet.MazeSolver
             get
             {
                 AdjustPoint(ref row, ref column);
-                if (maze[row, column] == Tile.Trap && triggered.Contains(new Point(row, column)))
+                if (Maze[row, column] == Tile.Trap && Triggered.Contains(new Point(row, column)))
                 {
                     return Tile.Empty;
                 }
 
-                return maze[row, column];
+                return Maze[row, column];
             }
         }
 
         public Tile this[Point point] { get => this[point.x, point.y]; }
 
-        public Point Start => maze.Start;
+        public Point Start => Maze.Start;
 
-        public Point End => maze.End;
-        public IMaze Rotate(District district, Direction direction)
+        public Point End => Maze.End;
+        public MazeView Rotate(District district, Direction direction)
         {
             if (direction == Direction.Right)
             {
-                rotations[(int)district] = (rotations[(int)district] + 1) % 4;
+                Rotations[(int)district] = (Rotations[(int)district] + 1) % 4;
             }
             else
             {
-                rotations[(int)district] = (rotations[(int)district] + 3) % 4;
+                Rotations[(int)district] = (Rotations[(int)district] + 3) % 4;
             }
             return this;
         }
 
-        public IMaze Trigger(Point trap)
+        public MazeView Trigger(Point trap)
         {
-            if (!triggered.Contains(trap))
+            if (!Triggered.Contains(trap))
             {
-                triggered.Add(trap.Clone());
+                Triggered.Add(trap.Clone());
             }
             return this;
         }
@@ -571,12 +563,43 @@ namespace kolpet.MazeSolver
 
         public bool IsWalked(Point point) => walked[point.x, point.y];
 
+        public bool IsWalked(int x, int y) => walked[x, y];
+
         public void AdjustPoint(ref int x, ref int y)
         {
             District district = Extensions.GetDistrict(x, y);
             if (district == District.Outside) return;
 
-            Extensions.AdjustPoint((CodeRotation)rotations[(int)district], ref x, ref y);
+            Extensions.AdjustPoint((CodeRotation)Rotations[(int)district], ref x, ref y);
+        }
+
+        public bool PreviewRotationEqual(MazeView view, District district, Direction direction)
+        {
+            if (!Enumerable.SequenceEqual(Triggered, view.Triggered))
+                return false;
+
+            int[] rotationsCopy = Rotations.ToArray();
+            if (direction == Direction.Right)
+            {
+                rotationsCopy[(int)district] = (rotationsCopy[(int)district] + 1) % 4;
+            }
+            else
+            {
+                rotationsCopy[(int)district] = (rotationsCopy[(int)district] + 3) % 4;
+            }
+
+            return Enumerable.SequenceEqual(rotationsCopy, view.Rotations);
+        }
+
+        public bool PreviewTriggerEqual(MazeView view, Point trigger)
+        {
+            if (!Enumerable.SequenceEqual(Rotations, view.Rotations))
+                return false;
+
+            List<Point> triggeredCopy = Triggered.ToList();
+            triggeredCopy.Add(trigger);
+
+            return Enumerable.SequenceEqual(triggeredCopy, view.Triggered);
         }
     }
 
@@ -716,28 +739,30 @@ namespace kolpet.MazeSolver
             return tile == Tile.Empty || tile == Tile.Trap || tile == Tile.End;
         }
 
-        public static IMaze RotateCopy(this IMaze maze, District district, Direction direction)
+        public static MazeView RotateCopy(this MazeView maze, District district, Direction direction)
         {
-            if (maze is Maze)
+            foreach(MazeView cache in maze.Maze.Cache)
             {
-                return new MazeView((Maze)maze).Rotate(district, direction);
+                if (maze.PreviewRotationEqual(cache, district, direction))
+                {
+                    return cache;
+                }
             }
-            else
-            {
-                return new MazeView((MazeView)maze).Rotate(district, direction);
-            }
+
+            return new MazeView(maze).Rotate(district, direction);
         }
 
-        public static IMaze TriggerCopy(this IMaze maze, Point trap)
+        public static MazeView TriggerCopy(this MazeView maze, Point trap)
         {
-            if (maze is Maze)
+            foreach (MazeView cache in maze.Maze.Cache)
             {
-                return new MazeView((Maze)maze).Trigger(trap);
+                if (maze.PreviewTriggerEqual(cache, trap))
+                {
+                    return cache;
+                }
             }
-            else
-            {
-                return new MazeView((MazeView)maze).Trigger(trap);
-            }
+
+            return new MazeView(maze).Trigger(trap);
         }
     }
 }
