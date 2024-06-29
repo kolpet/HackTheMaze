@@ -15,15 +15,15 @@ namespace kolpet.MazeSolver
         [ClassInitialize]
         public static void FixtureSetUp(TestContext context)
         {
-            foreach (string path in Directory.EnumerateFiles(@"Maze\xml"))
+            foreach (string path in Directory.EnumerateFiles(Path.Combine("Maze", "xml")))
             {
                 xmls.Add(Path.GetFileNameWithoutExtension(path), File.ReadAllText(path));
             }
-            foreach (string path in Directory.EnumerateFiles(@"Maze\map"))
+            foreach (string path in Directory.EnumerateFiles(Path.Combine("Maze", "map")))
             {
                 maps.Add(Path.GetFileNameWithoutExtension(path), File.ReadAllText(path));
             }
-            foreach (string path in Directory.EnumerateFiles(@"Maze\result"))
+            foreach (string path in Directory.EnumerateFiles(Path.Combine("Maze", "result")))
             {
                 results.Add(Path.GetFileNameWithoutExtension(path), File.ReadAllText(path));
             }
