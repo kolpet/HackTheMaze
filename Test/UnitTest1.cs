@@ -385,7 +385,7 @@ namespace kolpet.MazeSolver
 
             public TestMaze(int level, string map)
             {
-                map = map.Replace("\r\n", string.Empty).Replace("X\t", "X").Replace("S\t", "S").Replace("E\t", "E").Replace("H\t", "H").Replace("\t", " ");
+                map = map.Replace(Environment.NewLine, string.Empty).Replace("X\t", "X").Replace("S\t", "S").Replace("E\t", "E").Replace("H\t", "H").Replace("\t", " ");
                 Level = level;
                 for(int i = 0; i < 17; i++)
                 {
