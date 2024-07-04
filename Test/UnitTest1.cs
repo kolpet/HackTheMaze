@@ -1,4 +1,5 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting.Logging;
+using System.Diagnostics;
 using System.Reflection.Metadata;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -32,21 +33,21 @@ namespace kolpet.MazeSolver
         [TestMethod]
         public void TestLevel1()
         {
-            string result = RunTest(xmls["Level1Example"]);
+            Agent result = RunTest(xmls["Level1Example"]);
             EvaluateResult(results["Level1Example"], result);
         }
 
         [TestMethod]
         public void TestLevel2()
         {
-            string result = RunTest(xmls["Level2Example"]);
+            Agent result = RunTest(xmls["Level2Example"]);
             EvaluateResult(results["Level2Example"], result);
         }
 
         [TestMethod]
         public void TestLevel3()
         {
-            string result = RunTest(xmls["Level3Example"]);
+            Agent result = RunTest(xmls["Level3Example"]);
             EvaluateResult(results["Level3Example"], result);
         }
 
@@ -63,7 +64,7 @@ namespace kolpet.MazeSolver
                 .DrawWalls(2, 15, 15, 15)
                 .AddTrap(8, 8);
 
-            string result = RunTest(testMaze.Print());
+            Agent result = RunTest(testMaze.Print());
             EvaluateResult(string.Empty, result);
         }
 
@@ -72,7 +73,7 @@ namespace kolpet.MazeSolver
         {
             TestMaze testMaze = new TestMaze(3, maps["DeadEnd"]);
 
-            string result = RunTest(testMaze.Print());
+            Agent result = RunTest(testMaze.Print());
             EvaluateResult(string.Empty, result, 25);
         }
 
@@ -82,7 +83,7 @@ namespace kolpet.MazeSolver
             {
                 TestMaze testMaze = new TestMaze(3, maps["DoubleRotateStart"]);
 
-                string result = RunTest(testMaze.Print());
+                Agent result = RunTest(testMaze.Print());
                 EvaluateResult(string.Empty, result, 30);
             }
         }
@@ -93,7 +94,7 @@ namespace kolpet.MazeSolver
             {
                 TestMaze testMaze = new TestMaze(3, maps["DoubleRotateLate"]);
 
-                string result = RunTest(testMaze.Print());
+                Agent result = RunTest(testMaze.Print());
                 EvaluateResult(string.Empty, result, 30);
             }
         }
@@ -104,7 +105,7 @@ namespace kolpet.MazeSolver
             {
                 TestMaze testMaze = new TestMaze(3, maps["MultipleTraps"]);
 
-                string result = RunTest(testMaze.Print());
+                Agent result = RunTest(testMaze.Print());
                 EvaluateResult(string.Empty, result, 43);
             }
         }
@@ -115,7 +116,7 @@ namespace kolpet.MazeSolver
             {
                 TestMaze testMaze = new TestMaze(3, maps["DoubleDeadEnd"]);
 
-                string result = RunTest(testMaze.Print(), delaySec: 10);
+                Agent result = RunTest(testMaze.Print(), delaySec: 10);
                 EvaluateResult(string.Empty, result, 32);
             }
         }
@@ -125,7 +126,7 @@ namespace kolpet.MazeSolver
         {
             try
             {
-                string result = RunTest(xmls["TryolKiller"], delaySec: 10);
+                Agent result = RunTest(xmls["TryolKiller"], delaySec: 10);
                 EvaluateResult(string.Empty, result);
             }
             catch (Exception ex)
@@ -139,8 +140,26 @@ namespace kolpet.MazeSolver
         {
             TestMaze testMaze = new TestMaze(3, maps["TryolKillerModified"]);
 
-            string result = RunTest(testMaze.Print());
+            Agent result = RunTest(testMaze.Print());
             EvaluateResult(string.Empty, result, 136);
+        }
+
+        [TestMethod]
+        public void TestRotatoPotatoLevel()
+        {
+            TestMaze testMaze = new TestMaze(3, maps["RotatoPotato"]);
+
+            Agent result = RunTest(testMaze.Print());
+            EvaluateResult(string.Empty, result, 65);
+        }
+
+        [TestMethod]
+        public void TestRepeatRotationsLevel()
+        {
+            TestMaze testMaze = new TestMaze(3, maps["RepeatRotations"]);
+
+            Agent result = RunTest(testMaze.Print());
+            EvaluateResult(string.Empty, result, 49);
         }
 
         [TestMethod]
@@ -290,14 +309,18 @@ namespace kolpet.MazeSolver
             }
         }
 
-        private string RunTest(string xml, int delaySec = 60, bool throwAssert = true)
+        private Agent RunTest(string xml, int delaySec = 10, bool throwAssert = true)
         {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
             Maze maze = new Maze(xml);
             Agency agency = new Agency(maze);
-            Task<string> solver = Task.Run(() =>
+            Task<Agent> solver = Task.Run(() =>
             {
                 Agent best = agency.Solve();
-                return best.Result();
+                sw.Stop();
+                return best;
             });
 
             Task timeout = Task.Delay(delaySec * 1000);
@@ -315,11 +338,13 @@ namespace kolpet.MazeSolver
                     throw;
             }
 
+            Logger.LogMessage($"time of execution: {sw.ElapsedMilliseconds}ms");
             return solver.Result;
         }
 
-        private void EvaluateResult(string expectedResult, string actualResult, int expectedSteps = 0)
+        private void EvaluateResult(string expectedResult, Agent result, int expectedSteps = 0)
         {
+            string actualResult = result.Result();
             int actualSteps = CountSteps(actualResult);
             if (!string.IsNullOrEmpty(expectedResult))
             {
@@ -341,7 +366,11 @@ namespace kolpet.MazeSolver
                 Logger.LogMessage($"steps: {actualSteps}");
             }
 
+#if DEBUG
+            Logger.LogMessage(result.plannedStep.History);
+#else
             Logger.LogMessage(actualResult);
+#endif
 
             if (expectedSteps != 0)
             {

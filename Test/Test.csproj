@@ -37,6 +37,12 @@
     <None Update="Maze\map\DoubleRotateStart.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="Maze\map\RotatoPotato.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Maze\map\RepeatRotations.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="Maze\map\TryolKillerModified.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
