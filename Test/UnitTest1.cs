@@ -124,15 +124,8 @@ namespace kolpet.MazeSolver
         [TestMethod]
         public void TestTryolKillerLevel()
         {
-            try
-            {
-                Agent result = RunTest(xmls["TryolKiller"], delaySec: 10);
-                EvaluateResult(string.Empty, result);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogMessage($"test failed, expected; ex: " + ex);
-            }
+            Agent result = RunTest(xmls["TryolKiller"], delaySec: 10);
+            EvaluateResult(string.Empty, result);
         }
 
         [TestMethod]
@@ -150,7 +143,7 @@ namespace kolpet.MazeSolver
             TestMaze testMaze = new TestMaze(3, maps["RotatoPotato"]);
 
             Agent result = RunTest(testMaze.Print());
-            EvaluateResult(string.Empty, result, 65);
+            EvaluateResult(string.Empty, result, 59);
         }
 
         [TestMethod]
@@ -159,7 +152,14 @@ namespace kolpet.MazeSolver
             TestMaze testMaze = new TestMaze(3, maps["RepeatRotations"]);
 
             Agent result = RunTest(testMaze.Print());
-            EvaluateResult(string.Empty, result, 49);
+            EvaluateResult(string.Empty, result, 50);
+        }
+
+        [TestMethod]
+        public void TestUltimateLevel()
+        {
+            Agent result = RunTest(xmls["TheUltimate"], delaySec: 60);
+            EvaluateResult(string.Empty, result);
         }
 
         [TestMethod]
@@ -367,7 +367,7 @@ namespace kolpet.MazeSolver
             }
 
 #if DEBUG
-            Logger.LogMessage(result.plannedStep.History);
+            Logger.LogMessage(result.LastStep.History);
 #else
             Logger.LogMessage(actualResult);
 #endif

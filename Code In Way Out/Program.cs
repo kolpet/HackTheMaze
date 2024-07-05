@@ -8,6 +8,7 @@ using System.Data.Common;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Collections;
+using System.Diagnostics;
 
 namespace kolpet.MazeSolver
 {
@@ -16,10 +17,18 @@ namespace kolpet.MazeSolver
         public static void Main(string[] args)
         {
             string xml = args.Length == 1 ? args[0] : File.ReadAllText("xml.txt");
+#if DEBUG
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+#endif
             Maze maze = new Maze(xml);
             Agency agency = args.Length == 1 ? new Agency(maze) : new Agency(maze, 50);
             Agent best = agency.Solve();
             Console.Write(best.Result());
+#if DEBUG
+            sw.Stop();
+            Console.WriteLine($"Time for execution: [ElapsedMilliseconds={sw.ElapsedMilliseconds}]");
+#endif
         }
     }
 
@@ -31,7 +40,13 @@ namespace kolpet.MazeSolver
         bool visualize;
         int delay;
 
+#if DEBUG
+        List<MazeView> views = new List<MazeView>();
+#endif
+
         public Step FirstStep { get; }
+
+        public Agent? Best { get; set; }
 
         public Agency(Maze maze, int delay)
             : this(maze)
@@ -43,6 +58,7 @@ namespace kolpet.MazeSolver
         public Agency(Maze maze)
         {
             this.maze = maze;
+            Best = null;
 
             Point? start = null;
             for (int i = 0; i < 17; i++)
@@ -69,64 +85,84 @@ namespace kolpet.MazeSolver
             }
 
             mazeView = new MazeView(maze);
-
-            for (int i = 1; i <= 9; i++)
-            {
-                mazeView.RotateCopy((District)i, Direction.Right);
-                mazeView.RotateCopy((District)i, Direction.Left).RotateCopy((District)i, Direction.Left);
-            }
+#if DEBUG
+            views.Add(mazeView);
+#endif
 
             FirstStep = new Step(maze.Start.GetDirection(start!));
             Agent agent = new Agent(this, mazeView, maze.Start.Clone(), FirstStep);
-            agents.Enqueue(agent, 0);
-
             if (maze.Level == 3)
             {
+                for (int i = 1; i <= 9; i++)
+                {
+                    MazeView mazeRight = mazeView.RotateCopy((District)i, Direction.Right);
+                    mazeRight.Floodfill(maze.Start, 6, 11);
+                    MazeView mazeLeft = mazeView.RotateCopy((District)i, Direction.Left);
+                    mazeLeft.Floodfill(maze.Start, 6, 11);
+                    MazeView mazeDown = mazeRight.RotateCopy((District)i, Direction.Right);
+                    mazeDown.Floodfill(maze.Start, 11, 21);
+
+#if DEBUG
+                    views.Add(mazeRight);
+                    views.Add(mazeDown);
+                    views.Add(mazeLeft);
+#endif
+                }
+
                 District district = Extensions.GetDistrict(start.x, start.y);
                 Step rotateLeft = new Step(district, Direction.Left);
                 agent = new Agent(this, mazeView, maze.Start.Clone(), rotateLeft);
-                agent.Step();
+
                 Step rotateRight = new Step(district, Direction.Right);
                 agent = new Agent(this, mazeView, maze.Start.Clone(), rotateRight);
-                agent.Step();
 
                 Step rotateRightAgain = new Step(rotateRight, district, Direction.Right);
-                agent = new Agent(agent, rotateRightAgain);
-                agent.Step();
+                agent = new Agent(agent);
+                agent.ExecuteStep(rotateRightAgain);
 
-                MazeView optimalMaze = maze.FindBestWeight(start);
-                if (optimalMaze != mazeView)
-                {
-                    int i = maze.Cache.IndexOf(optimalMaze);
-                    District optimalDistrict = (District)((i + 1) / 2);
-                    if (i > 0 && i < 19 && optimalDistrict != district)
-                    {
-                        Step rotateOptimal = new Step(optimalDistrict, i % 2 == 1 ? Direction.Right : Direction.Left);
-                        agent = new Agent(this, mazeView, maze.Start.Clone(), rotateOptimal);
-                        agents.Enqueue(agent, 0);
-                    }
-                }
+                //MazeView optimalMaze = maze.FindBestWeight(start);
+                //if (optimalMaze != mazeView)
+                //{
+                //    int i = 1;
+                //    while (optimalMaze.Rotations[i] == 0) { i++; }
+                //    District optimalDistrict = (District)((i + 1) / 2);
+                //    if (i > 0 && i < 19 && optimalDistrict != district)
+                //    {
+                //        Step rotateOptimal = new Step(optimalDistrict, i % 2 == 1 ? Direction.Right : Direction.Left);
+                //        agent = new Agent(this, mazeView, maze.Start.Clone(), rotateOptimal);
+                //        agents.Enqueue(agent, 0);
+                //    }
+                //}
             }
         }
 
         public Agent Solve()
         {
             Agent agent;
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
             do
             {
                 agent = agents.Dequeue();
-                int weight = agent.GetWeight();
-                agent.Step();
+                agent.PlanAndExecuteSteps();
+#if DEBUG
                 if (visualize)
                 {
                     Visualize();
                     Console.WriteLine();
-                    Console.WriteLine($"[weight={weight}] {agent}");
+                    Console.WriteLine($"[agents.Count={agents.Count}]; [weight={agent.GetWeight()}] {agent}");
                     //Console.WriteLine($"tracked: [weight={agents.UnorderedItems.Single((x) => x.Element == agent).Priority}] {agent}");
                     Thread.Sleep(delay);
+
+                    if (Best != null)
+                    {
+                        Console.WriteLine($"Best: {Best}");
+                    }
                 }
-            } while (agent.Position != maze.End);
-            return agent;
+#endif
+            } while (agents.Count > 0 && (Best == null || sw.ElapsedMilliseconds < 500));
+            return Best;
         }
 
         public void Enqueue(Agent agent)
@@ -134,6 +170,7 @@ namespace kolpet.MazeSolver
             agents.Enqueue(agent, agent.GetWeight());
         }
 
+#if DEBUG
         public void Visualize()
         {
             StringBuilder[] text = new StringBuilder[17];
@@ -158,10 +195,6 @@ namespace kolpet.MazeSolver
                             ch = 'H';
                             break;
                     }
-                    if (mazeView.GetTrail(i, j) == Trail.Cold)
-                    {
-                        ch = '*';
-                    }
                     text[i].Append(ch);
                 }
             }
@@ -170,34 +203,42 @@ namespace kolpet.MazeSolver
                 text[items.Element.Position.x][items.Element.Position.y] = 'A';
             }
             Console.Clear();
-            for (int i = 0; i < 17; i++)
+            int viewCount = views.Count;
+            for (int i = 0; i < 28; i++)
             {
-                Console.WriteLine($"{text[i]}  {i}: {maze.Cache[i]}");
+                Console.WriteLine(string.Format("{0}{1}",
+                    i < 17 ? text[i] : "                 ",
+                    i < viewCount ? $"  {i}: {views[i]}" : string.Empty));
             }
-            Console.WriteLine($"                   {17}: {maze.Cache[17]}");
-            Console.WriteLine($"                   {18}: {maze.Cache[18]}");
-            MazeView winner = maze.Cache[17];
-            for (int i = 0; i < winner.Agents.Count && i < 5; i++)
-            {
-                Console.WriteLine($"                   {winner.Agents[i]}");
-            }
+            //MazeView winner = views[17];
+            //for (int i = 0; i < winner.Agents.Count && i < 5; i++)
+            //{
+            //    Console.WriteLine($"                   {winner.Agents[i]}");
+            //}
         }
+#endif
     }
 
     public class Step
     {
+
+#if DEBUG
         public static int counter = 0;
+        public int id;
+        public bool trigger;
+#endif
 
         public Step? root;
 
         public District? district;
         public Direction direction;
         public int length;
-        public int id;
 
         private Step()
         {
+#if DEBUG
             id = counter++;
+#endif
         }
 
         public Step(Direction direction)
@@ -243,12 +284,12 @@ namespace kolpet.MazeSolver
 
 #if DEBUG
         public string History => root?.History + $"\n{this}";
-#endif
 
         public override string ToString()
         {
-            return (district == null ? $"move {direction!}" : $"rotate {district} {direction}") + $"; id {id}";
+            return (district == null ? $"move {direction!}" : $"rotate {district} {direction}") + $"; id {id}" + (trigger ? " trigger" : string.Empty);
         }
+#endif
     }
 
     public class Agent
@@ -256,38 +297,36 @@ namespace kolpet.MazeSolver
         static int counter = 0;
         int id;
         Agency agency;
-        Step plannedStep;
-        int rotationLimit = 3;
-        Point goal;
+        int rotationLimit = 10;
+        int stepsExecuted;
+        int lowestWeight = int.MaxValue;
 
         public MazeView Maze { get; private set; }
 
         public Point Position { get; private set; }
 
-        public int Steps { get; private set; }
+        public Step? LastStep { get; private set; }
+
+        public int Score { get; private set; }
+
+        public int PathLength { get; private set; }
+
+        public HashSet<int> Triggered { get; private set; }
 
         public Agent(Agency agency, MazeView maze, Point position, Step step)
         {
             this.agency = agency;
             this.Maze = maze;
             Position = position;
-            plannedStep = step;
-            Steps = 0;
+            Score = 0;
+            PathLength = 0;
             id = counter++;
-            goal = maze.End;
+            Triggered = new HashSet<int>();
+            stepsExecuted = 0;
+#if DEBUG
             Maze.Agents.Add(this);
-        }
-
-        public Agent(Agent copy, Step step)
-            :this(copy)
-        {
-            plannedStep = step;
-        }
-
-        public Agent(Agent copy, Point goal)
-            :this(copy)
-        {
-            this.goal = goal;
+#endif
+            ExecuteStep(step);
         }
 
         public Agent(Agent copy)
@@ -295,83 +334,208 @@ namespace kolpet.MazeSolver
             agency = copy.agency;
             Maze = copy.Maze;
             Position = copy.Position.Clone();
-            Steps = copy.Steps;
-            goal = copy.goal;
-            plannedStep = copy.plannedStep.Clone();
+            Score = copy.Score;
+            PathLength = copy.PathLength;
+            LastStep = copy.LastStep;
             rotationLimit = copy.rotationLimit;
             id = counter++;
+            Triggered = copy.Triggered.ToHashSet();
+            stepsExecuted = copy.stepsExecuted;
+#if DEBUG
             Maze.Agents.Add(this);
+#endif
         }
 
         // TODO: get A* weight working with tests
         public int GetWeight()
         {
-            return Steps;
-        }
-
-        public void Step()
-        {
-            if (Steps > 200) return;
-
-            if (plannedStep.district != null)
+            int weight = Position.GetWalkDistance(Maze.End);
+            if (Maze.Base.GetWeight(Maze.End) != int.MaxValue)
             {
-                //if (Extensions.GetDistrict(Position.x, Position.y) == plannedStep.district) return;
-                Maze.SetTrail(Position, Trail.Cold);
-                Maze.Agents.Remove(this);
-                Maze = Maze.RotateCopy((District)plannedStep.district, plannedStep.direction);
-                Maze.Agents.Add(this);
-                Steps += 5;
-                rotationLimit--;
-                Maze.SetTrail(Position, Trail.Hot);
+                weight = Maze.Base.GetWeight(Maze.End) - Score;
+                if (weight < lowestWeight)
+                    lowestWeight = weight;
+                else
+                    weight = lowestWeight;
+            }
+
+            if (Maze.GetWeight(Position) != int.MaxValue)
+            {
+                weight += Maze.GetWeight(Position) - Maze.Base.GetWeight(Position);
             }
             else
             {
-                Maze.SetTrail(Position, Trail.Cold);
-                Direction direction = plannedStep.direction;
-                Position.Move(direction);
-                Steps++;
-                Maze.SetTrail(Position, Trail.Hot);
+                weight = (int)Math.Pow(weight, 2);
             }
 
-            if (Position == Maze.End) return;
+            weight += Score;
+            return weight;
+        }
+
+#if DEBUG
+        public void DebugStep()
+        {
+            // level3: down 1;right 7;down 7;left 4;down 2;break;rotate bottomright right;break
+            // rotatopotato: down 1;left 2;down 3;rotate topleft left;rotate topleft left;left 2;down 1
+            // repeatrotations:  down 1;left 3;rotate top left;right 1;down 4;right 2;down 1
+            string steps = @"down 9;up 1"; //
+            string[] search = steps.Split(';', StringSplitOptions.RemoveEmptyEntries);
+            string[] history = LastStep.History.Split("\n", StringSplitOptions.RemoveEmptyEntries);
+            int hLine = 0; int sLine = 0;
+            bool canBreak = false;
+            for (; sLine < search.Length; sLine++)
+            {
+                if (hLine >= history.Length) break;
+                if (search[sLine] == "break")
+                {
+                    canBreak = !canBreak;
+                    continue;
+                }
+
+                string[] parts = search[sLine].Split(' ');
+                if (parts[0] == "rotate")
+                {
+                    if (hLine >= history.Length) break;
+                    if (!history[hLine].Contains(search[sLine], StringComparison.InvariantCultureIgnoreCase))
+                        return;
+                    hLine++;
+                }
+                else
+                {
+                    int times = int.Parse(parts[1]);
+                    for (int j = 0; j < times; j++)
+                    {
+                        if (hLine >= history.Length) break;
+                        if (!history[hLine].Contains("move " + parts[0], StringComparison.InvariantCultureIgnoreCase))
+                            return;
+                        hLine++;
+                    }
+                }
+            }
+
+            if (canBreak || (sLine == search.Length && hLine == history.Length))
+               Debugger.Break();
+        }
+#endif
+
+        public void ExecuteStep(Step step)
+        {
+            if (LastStep != null) 
+                step.root = LastStep;
+            LastStep = step;
+#if DEBUG
+            DebugStep();
+#endif
+            if (agency.Best != null && Score + Position.GetWalkDistance(Maze.End) > agency.Best.Score)
+            {
+                return;
+            }
+
+            if (LastStep.district != null)
+            {
+                //if (Extensions.GetDistrict(Position.x, Position.y) == plannedStep.district) return;
+#if DEBUG
+                Maze.Agents.Remove(this);
+#endif
+                Maze = Maze.RotateCopy((District)LastStep.district, LastStep.direction);
+#if DEBUG
+                Maze.Agents.Add(this);
+#endif
+                Score += 5;
+                PathLength += 10;
+                stepsExecuted++;
+                rotationLimit--;
+
+                if (Score < Maze.GetWeight(Position))
+                {
+                    Maze.Floodfill(Position, Score, PathLength);
+                }
+            }
+            else
+            {
+                Direction direction = LastStep.direction;
+                Position.Move(direction);
+                Score++;
+                PathLength++;
+                stepsExecuted++;
+            }
+
+            if (Position == Maze.End)
+            {
+                if (agency.Best == null || Score < agency.Best.Score)
+                    agency.Best = this;
+                return;
+            }
+            if (Maze[Position] == Tile.Trap &&
+                Maze.Level >= 2 &&
+                !Triggered.Contains(Maze.GetTrapId(Position)))
+            {
+                Triggered.Add(Maze.GetTrapId(Position));
+                //Position = Maze.Start.Clone();
+                Score += PathLength;
+#if DEBUG
+                LastStep.trigger = true;
+#endif
+
+                // duplicate path with correction for rotations
+                Step current = LastStep;
+                for (int i = 1; i <= 9; i++)
+                {
+                    if (Maze.Rotations[i] == (int)CodeRotation.Down)
+                    {
+                        Step rotate = new Step(LastStep, (District)i, Direction.Right);
+                        LastStep = rotate;
+                        rotate = new Step(LastStep, (District)i, Direction.Right);
+                        LastStep = rotate;
+                    }
+                    if (Maze.Rotations[i] % 2 == 1) // Righ-Left
+                    {
+                        Direction rotation = ((CodeRotation)Maze.Rotations[i]).Convert().Rotate(Direction.Down);
+                        Step rotate = new Step(LastStep, (District)i, rotation);
+                        LastStep = rotate;
+                    }
+                }
+
+                Stack<Step> repeat = new Stack<Step>();
+                for(int i = 0; i < stepsExecuted; i++)
+                {
+                    repeat.Push(current);
+                    current = current.root;
+                }
+                for (int i = 0; i < stepsExecuted; i++)
+                {
+                    current = repeat.Pop().Clone();
+                    current.root = LastStep;
+                    LastStep = current;
+                }
+            }
+
+            if (Maze.GetWalked(Position) && Maze.GetWeight(Position) <= Score) return;
+            Maze.SetWalked(Position.x, Position.y);
+            if (Score > Maze.Base.GetWeight(Maze.End)) return;
+
+            agency.Enqueue(this);
+        }
+
+        public void PlanAndExecuteSteps()
+        {
             if (Position == Maze.Start)
             {
                 if (!Maze[Position.GetNeighbour(agency.FirstStep.direction)].IsValid()) return;
-                plannedStep = new Step(plannedStep, agency.FirstStep.direction);
-                agency.Enqueue(this);
+                ExecuteStep(new Step(agency.FirstStep.direction));
                 return;
             }
-            if (Maze[Position] == Tile.Trap)
-            {
-                Maze.Agents.Remove(this);
-                Maze = Maze.TriggerCopy(Position);
-                Maze.Agents.Add(this);
-                Position = Maze.Start.Clone();
-                plannedStep = new Step(plannedStep, agency.FirstStep.direction);
-                agency.Enqueue(this);
-                return;
-            }
-            if (Position == goal)
-            {
-                goal = Maze.End;
-            }
-            if (Maze.GetTrail(Position) == Trail.Cold) return;
-            //if (Maze.GetWeight(Position) == 99 && rotationLimit == 0) return;
-            PlanStep();
-        }
 
-        public void PlanStep()
-        {
             Queue<Step> choices = new Queue<Step>();
             District district = Extensions.GetDistrict(Position.x, Position.y);
-            Direction desire = Position.GetDirection(goal);
+            Direction desire = Position.GetDirection(Maze.End);
             for (int i = 0; i < 4; i++)
             {
                 Point neighbour = Position.GetNeighbour(desire);
-                if (Maze[neighbour].IsValid() &&
-                    Maze.GetTrail(neighbour) != Trail.Cold)
+                if (Maze[neighbour].IsValid() && 
+                    Score <= Maze.GetWeight(neighbour))
                 {
-                    choices.Enqueue(new Step(plannedStep, desire));
+                    choices.Enqueue(new Step(desire));
                 }
 
                 if (Maze.Level == 3 && rotationLimit > 0)
@@ -380,18 +544,31 @@ namespace kolpet.MazeSolver
                     if (neighbourDistrict != district &&
                         neighbourDistrict != District.Outside)
                     {
+                        bool turned = false;
                         MazeView preview = Maze.RotateCopy(neighbourDistrict, Direction.Right);
-                        if (preview[neighbour.x, neighbour.y].IsValid() &&
-                            preview.GetTrail(neighbour) != Trail.Cold)
+                        if (preview[neighbour].IsValid() &&
+                            Score <= preview.GetWeight(Position))
                         {
-                            choices.Enqueue(new Step(plannedStep, neighbourDistrict, Direction.Right));
+                            choices.Enqueue(new Step(neighbourDistrict, Direction.Right));
+                            turned = true;
                         }
 
                         preview = Maze.RotateCopy(neighbourDistrict, Direction.Left);
-                        if (preview[neighbour.x, neighbour.y].IsValid() &&
-                            preview.GetTrail(neighbour) != Trail.Cold)
+                        if (preview[neighbour].IsValid() &&
+                            Score <= preview.GetWeight(Position))
                         {
-                            choices.Enqueue(new Step(plannedStep, neighbourDistrict, Direction.Left));
+                            choices.Enqueue(new Step(neighbourDistrict, Direction.Left));
+                            turned = true;
+                        }
+
+                        preview = preview.RotateCopy(neighbourDistrict, Direction.Left);
+                        if (preview[neighbour].IsValid() &&
+                            Score <= preview.GetWeight(Position) &&
+                            !turned)
+                        {
+                            Step preStep = new Step(neighbourDistrict, Direction.Left);
+                            Agent agent = new Agent(this);
+                            agent.ExecuteStep(preStep);
                         }
                     }
                 }
@@ -400,19 +577,20 @@ namespace kolpet.MazeSolver
 
             if (choices.Count > 0)
             {
-                agency.Enqueue(this);
-                plannedStep = choices.Dequeue();
-
+                Step topStep = choices.Dequeue();
                 while (choices.Count > 0)
                 {
-                    agency.Enqueue(new Agent(this, choices.Dequeue()));
+                    Agent agent = new Agent(this);
+                    agent.ExecuteStep(choices.Dequeue());
                 }
+
+                ExecuteStep(topStep);
             }
         }
 
         public string Result()
         {
-            Step current = plannedStep;
+            Step current = LastStep;
 
             Stack<Step> steps = new Stack<Step>();
             do
@@ -457,12 +635,12 @@ namespace kolpet.MazeSolver
             return builder.ToString();
         }
 
+#if DEBUG
         public override string ToString()
         {
-            return $"Agent {id} [Position={Position}]; [Steps={Steps}]; [plannedStep={plannedStep}]";
+            return $"Agent {id} [Position={Position}]; [Score={Score}]; [plannedStep={LastStep}]";
         }
 
-#if DEBUG
         public string Visualize
         {
             get
@@ -472,7 +650,7 @@ namespace kolpet.MazeSolver
                 int pos = 0;
                 Point oldPos = Maze.Start.Clone();
                 Stack<Step> stack = new Stack<Step>();
-                stack.Push(plannedStep);
+                stack.Push(LastStep);
                 while (stack.Peek().root != null) stack.Push(stack.Peek().root!);
                 while (stack.Count > 0)
                 {
@@ -532,13 +710,6 @@ namespace kolpet.MazeSolver
         BottomRight = 9,
     }
 
-    public enum Trail
-    {
-        None,
-        Hot,
-        Cold
-    }
-
     public class Point
     {
         public int x;
@@ -561,10 +732,12 @@ namespace kolpet.MazeSolver
             return obj1.x != obj2.x || obj1.y != obj2.y;
         }
 
+#if DEBUG
         public override string ToString()
         {
             return $"[x={x+1}]; [y={y+1}]";
         }
+#endif
 
         public override bool Equals(object obj)
         {
@@ -603,6 +776,7 @@ namespace kolpet.MazeSolver
     {
         Tile[,] tiles = new Tile[17, 17];
         int[,] weight = new int[17, 17];
+        int[,] traps = new int[17, 17];
 
         public int Level { get; private set; }
 
@@ -614,7 +788,7 @@ namespace kolpet.MazeSolver
 
         public Point End { get; private set; } = new Point(0, 0);
 
-        public List<MazeView> Cache { get; } = new List<MazeView>();
+        public Dictionary<long, MazeView> Cache { get; } = new Dictionary<long, MazeView>();
 
         public Maze(string xml)
         {
@@ -629,12 +803,18 @@ namespace kolpet.MazeSolver
             End.y = int.Parse(maze.SelectSingleNode("EscapePoint/Column")!.InnerText!) - 1;
 
             XmlNode items = maze.SelectSingleNode("InsideItems")!;
+            int trapCount = 1;
             foreach (XmlNode item in items.ChildNodes)
             {
                 Tile tile = item.Name == "Wall" ? Tile.Wall : Tile.Trap;
                 int x = int.Parse(item.SelectSingleNode("Row")!.InnerText!) - 1;
                 int y = int.Parse(item.SelectSingleNode("Column")!.InnerText!) - 1;
                 tiles[x, y] = tile;
+
+                if (tile == Tile.Trap)
+                {
+                    traps[x, y] = trapCount++;
+                }
             }
 
             for (int i = 0; i < 17; i++)
@@ -645,7 +825,7 @@ namespace kolpet.MazeSolver
                 tiles[16, i] = Tile.Wall;
 
                 for (int j = 0; j < 17; j++)
-                    weight[i, j] = 99;
+                    weight[i, j] = int.MaxValue;
             }
 
             tiles[Start.x, Start.y] = Tile.Start;
@@ -657,6 +837,10 @@ namespace kolpet.MazeSolver
         public int GetWeight(int x, int y) => weight[x, y];
 
         public void SetWeight(int x, int y, int weight) => this.weight[x, y] = weight;
+
+        public int GetTrapId(Point point) => GetTrapId(point.x, point.y);
+
+        public int GetTrapId(int x, int y) => traps[x, y];
 
         public string Print(bool weights)
         {
@@ -681,9 +865,9 @@ namespace kolpet.MazeSolver
                             str = "HH";
                             break;
                     }
-                    if (weights)
+                    if (this[i, j].IsValid() && weights)
                     {
-                        str = (GetWeight(i, j) < 10 ? " " : string.Empty) + GetWeight(i, j).ToString();
+                        str = (GetWeight(i, j) % 100 < 10 ? " " : string.Empty) + (GetWeight(i, j) % 100);
                     }
                     text.Append(str);
                 }
@@ -699,54 +883,51 @@ namespace kolpet.MazeSolver
 
     public class MazeView : IMaze
     {
-        Trail[,] walked = new Trail[17, 17];
         int[,] weight = new int[17, 17];
+        bool[,] walked = new bool[17, 17];
+        long hash;
 
-        public int Level => Maze.Level;
+        public int Level => Base.Level;
 
-        public Maze Maze { get; }
-
-        public List<Point> Triggered { get; }
+        public Maze Base { get; }
 
         public int[] Rotations { get; } // 0: base, 1: right, 2: down, 3: left
 
+#if DEBUG
         public List<Agent> Agents { get; set; } = new List<Agent>();
+#endif
 
         public MazeView(Maze maze)
         {
-            Maze = maze;
-            Triggered = new List<Point>();
+            Base = maze;
             Rotations = new int[10];
-            maze.Cache.Add(this);
+            hash = 10000000000;
+            maze.Cache.Add(hash, this);
             for (int i = 0; i < 17; i++)
                 for (int j = 0; j < 17; j++)
-                    weight[i, j] = 99;
-            Floodfill();
+                    weight[i, j] = int.MaxValue;
+            Floodfill(Start);
         }
 
         public MazeView(MazeView copy)
         {
-            Maze = copy.Maze;
-            Triggered = copy.Triggered.ToList();
+            Base = copy.Base;
             Rotations = copy.Rotations.ToArray();
-            Maze.Cache.Add(this);
             for (int i = 0; i < 17; i++)
                 for (int j = 0; j < 17; j++)
-                    weight[i, j] = 99;
+                    weight[i, j] = int.MaxValue;
         }
 
         public MazeView(MazeView copy, District district, Direction rotation)
             : this(copy)
         {
             Rotate(district, rotation);
-            Floodfill();
-        }
-
-        public MazeView(MazeView copy, Point trap)
-            : this(copy)
-        {
-            Trigger(trap);
-            Floodfill();
+            long hash = 10000000000;
+            for (int i = 0; i < 9; i++)
+            {
+                hash += Rotations[i + 1] * (int)Math.Pow(10, i);
+            }
+            Base.Cache.Add(hash, this);
         }
 
         public Tile this[int row, int column]
@@ -754,20 +935,15 @@ namespace kolpet.MazeSolver
             get
             {
                 AdjustPoint(ref row, ref column);
-                if (Maze[row, column] == Tile.Trap && Triggered.Contains(new Point(row, column)))
-                {
-                    return Tile.Empty;
-                }
-
-                return Maze[row, column];
+                return Base[row, column];
             }
         }
 
         public Tile this[Point point] { get => this[point.x, point.y]; }
 
-        public Point Start => Maze.Start;
+        public Point Start => Base.Start;
 
-        public Point End => Maze.End;
+        public Point End => Base.End;
         public MazeView Rotate(District district, Direction direction)
         {
             if (direction == Direction.Right)
@@ -781,21 +957,6 @@ namespace kolpet.MazeSolver
             return this;
         }
 
-        public MazeView Trigger(Point trap)
-        {
-            if (!Triggered.Contains(trap))
-            {
-                Triggered.Add(trap.Clone());
-            }
-            return this;
-        }
-
-        public void SetTrail(Point point, Trail trail) => walked[point.x, point.y] = trail;
-
-        public Trail GetTrail(Point point) => walked[point.x, point.y];
-
-        public Trail GetTrail(int x, int y) => walked[x, y];
-
         public int GetWeight(Point point) => GetWeight(point.x, point.y);
 
         public int GetWeight(int x, int y)
@@ -806,11 +967,33 @@ namespace kolpet.MazeSolver
 
         public void SetWeight(int x, int y, int w)
         {
-            if (Maze.GetWeight(x, y) > w)
-                Maze.SetWeight(x, y, w);
+            if (w < Base.GetWeight(x, y))
+                Base.SetWeight(x, y, w);
 
             AdjustPoint(ref x, ref y);
             weight[x, y] = w;
+        }
+
+        public bool GetWalked(Point point) => GetWalked(point.x, point.y);
+
+        public bool GetWalked(int x, int y)
+        {
+            AdjustPoint(ref x, ref y);
+            return walked[x, y];
+        }
+
+        public void SetWalked(int x, int y)
+        {
+            AdjustPoint(ref x, ref y);
+            walked[x, y] = true;
+        }
+
+        public int GetTrapId(Point point) => GetTrapId(point.x, point.y);
+
+        public int GetTrapId(int x, int y)
+        {
+            AdjustPoint(ref x, ref y);
+            return Base.GetTrapId(x, y);
         }
 
         public void AdjustPoint(ref int x, ref int y)
@@ -823,9 +1006,6 @@ namespace kolpet.MazeSolver
 
         public bool PreviewRotationEqual(MazeView view, District district, Direction direction)
         {
-            if (!Enumerable.SequenceEqual(Triggered, view.Triggered))
-                return false;
-
             int[] rotationsCopy = Rotations.ToArray();
             if (direction == Direction.Right)
             {
@@ -839,42 +1019,43 @@ namespace kolpet.MazeSolver
             return Enumerable.SequenceEqual(rotationsCopy, view.Rotations);
         }
 
-        public bool PreviewTriggerEqual(MazeView view, Point trigger)
+        public void Floodfill(Point start, int baseWeight = 1, int basePath = 1)
         {
-            if (!Enumerable.SequenceEqual(Rotations, view.Rotations))
-                return false;
+            Queue<Tuple<Point, int, int>> points = new Queue<Tuple<Point, int, int>>();
 
-            List<Point> triggeredCopy = Triggered.ToList();
-            triggeredCopy.Add(trigger);
+            if (start == Start)
+            {
+                weight[Start.x, Start.y] = 0;
+                start = new(
+                    Start.x == 0 ? 1 : (Start.x == 16 ? 15 : Start.x),
+                    Start.y == 0 ? 1 : (Start.y == 16 ? 15 : Start.y));
+                if (!this[start].IsValid()) return;
+                if (this[start] == Tile.Trap)
+                    baseWeight = 2;
+            }
 
-            return Enumerable.SequenceEqual(triggeredCopy, view.Triggered);
-        }
-
-        private void Floodfill()
-        {
-            Queue<Tuple<Point, int>> points = new Queue<Tuple<Point, int>>();
-            Point start = new(
-                End.x == 0 ? 1 : (End.x == 16 ? 15 : End.x),
-                End.y == 0 ? 1 : (End.y == 16 ? 15 : End.y));
-            weight[End.x, End.y] = 0;
-            points.Enqueue(Tuple.Create(start, 1));
-
-            while (points.TryDequeue(out Tuple<Point, int> current))
+            weight[start.x, start.y] = baseWeight;
+            points.Enqueue(Tuple.Create(start, baseWeight, basePath));
+            while (points.TryDequeue(out Tuple<Point, int, int> current)) // point, weight, pathLength
             {
                 Point pos = current.Item1;
-                SetWeight(pos.x, pos.y, current.Item2);
 
-                Direction desire = pos.GetDirection(Start);
+                Direction desire = pos.GetDirection(End);
                 for (int i = 0; i < 4; i++)
                 {
                     Point neighbour = pos.GetNeighbour(desire);
-                    if ((this[neighbour] == Tile.Empty || this[neighbour] == Tile.Trap) &&
-                        GetWeight(neighbour.x, neighbour.y) > current.Item2 + 1)
+                    Tile tile = this[neighbour];
+                    if (tile == Tile.Empty || tile == Tile.Trap)
                     {
-                        int cost = this[neighbour] == Tile.Trap ? 25 : 1;
-                        points.Enqueue(Tuple.Create(neighbour, current.Item2 + cost));
+                        int pathLength = current.Item3 + 1;
+                        int w = current.Item2 + 1 + (this[neighbour] == Tile.Trap ? pathLength : 0);
+                        if (w < GetWeight(neighbour.x, neighbour.y))
+                        {
+                            SetWeight(neighbour.x, neighbour.y, w);
+                            points.Enqueue(Tuple.Create(neighbour, w, pathLength));
+                        }
                     }
-                    if (this[neighbour] == Tile.Start)
+                    if (tile == Tile.End)
                     {
                         SetWeight(neighbour.x, neighbour.y, current.Item2 + 1);
                     }
@@ -882,10 +1063,10 @@ namespace kolpet.MazeSolver
                     desire = desire.Rotate(Direction.Left);
                 }
             }
-
             //Print(true)
         }
 
+#if DEBUG
         public string Print(bool weights)
         {
             StringBuilder text = new StringBuilder();
@@ -909,9 +1090,9 @@ namespace kolpet.MazeSolver
                             str = "HH";
                             break;
                     }
-                    if (str == "  " && weights)
+                    if (this[i, j].IsValid() && weights)
                     {
-                        str = (GetWeight(i, j) < 10 ? " " : string.Empty) + GetWeight(i, j).ToString();
+                        str = (GetWeight(i, j) % 100 < 10 ? " " : string.Empty) + (GetWeight(i, j) % 100);
                     }
                     text.Append(str);
                 }
@@ -920,14 +1101,13 @@ namespace kolpet.MazeSolver
             return text.ToString();
         }
 
-#if DEBUG
-        public string Visualize => Print(false);
-#endif
+        public string Visualize => Print(true);
 
         public override string ToString()
         {
-            return $"[Rotations={string.Join(',', Rotations)}]; [Triggered={string.Join(',', Triggered)}]; [Agents={Agents.Count}]";
+            return $"[Rotations={string.Join(',', Rotations)}]; [Agents={Agents.Count}]";
         }
+#endif
     }
 
     public static class Extensions
@@ -1036,9 +1216,14 @@ namespace kolpet.MazeSolver
             }
         }
 
-        public static double GetDistance(this Point orig, Point dest)
+        public static double GetAirDistance(this Point orig, Point dest)
         {
             return Math.Sqrt(Math.Pow(orig.x - dest.x, 2) * Math.Pow(orig.y - dest.y, 2));
+        }
+
+        public static int GetWalkDistance(this Point orig, Point dest)
+        {
+            return Math.Abs(orig.x - dest.x) + Math.Abs(orig.y - dest.y);
         }
 
         public static bool IsDistrictBorder(this Point point)
@@ -1075,35 +1260,31 @@ namespace kolpet.MazeSolver
 
         public static MazeView RotateCopy(this MazeView maze, District district, Direction direction)
         {
-            foreach(MazeView cache in maze.Maze.Cache)
+            long hash = 10000000000;
+            for (int i = 0; i < 9; i++)
             {
-                if (maze.PreviewRotationEqual(cache, district, direction))
-                {
-                    return cache;
-                }
+                hash += maze.Rotations[i + 1] * (int)Math.Pow(10, i);
+            }
+            int pos = (int)district - 1;
+            int pow = (int)Math.Pow(10, pos);
+            long dx = (hash / pow) % 10;
+            hash -= dx * pow;
+            dx = (dx + (int)direction.Convert()) % 4;
+            hash += dx * pow;
+
+            if (maze.Base.Cache.TryGetValue(hash, out MazeView cached))
+            {
+                return cached;
             }
 
             return new MazeView(maze, district, direction);
-        }
-
-        public static MazeView TriggerCopy(this MazeView maze, Point trap)
-        {
-            foreach (MazeView cache in maze.Maze.Cache)
-            {
-                if (maze.PreviewTriggerEqual(cache, trap))
-                {
-                    return cache;
-                }
-            }
-
-            return new MazeView(maze, trap);
         }
 
         public static MazeView FindBestWeight(this Maze maze, Point position)
         {
             MazeView? result = null;
             int best = int.MaxValue;
-            foreach (MazeView cache in maze.Cache)
+            foreach (MazeView cache in maze.Cache.Values)
             {
                 int weight = cache.GetWeight(position);
                 if (weight != 0 && weight < best)

@@ -58,6 +58,9 @@
     <None Update="Maze\result\Level3Example.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="Maze\xml\TheUltimate.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="Maze\xml\TryolKiller.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
