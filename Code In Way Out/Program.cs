@@ -141,6 +141,8 @@ namespace kolpet.MazeSolver
             Agent agent;
             Stopwatch sw = new Stopwatch();
             sw.Start();
+            int timeout = (int)(maze.Complexity * 100);
+            bool complexityTimeout;
 
             do
             {
@@ -161,7 +163,8 @@ namespace kolpet.MazeSolver
                     }
                 }
 #endif
-            } while (agents.Count > 0 && (Best == null || sw.ElapsedMilliseconds < 500));
+                complexityTimeout = Best != null && sw.ElapsedMilliseconds > timeout;
+            } while (agents.Count > 0 && !complexityTimeout);
             return Best;
         }
 
@@ -778,6 +781,8 @@ namespace kolpet.MazeSolver
         int[,] weight = new int[17, 17];
         int[,] traps = new int[17, 17];
 
+        public double Complexity { get; private set; }
+
         public int Level { get; private set; }
 
         public Tile this[int row, int column] { get => tiles[row, column]; }
@@ -803,7 +808,8 @@ namespace kolpet.MazeSolver
             End.y = int.Parse(maze.SelectSingleNode("EscapePoint/Column")!.InnerText!) - 1;
 
             XmlNode items = maze.SelectSingleNode("InsideItems")!;
-            int trapCount = 1;
+            int trapCount = 0;
+            int wallCount = 0;
             foreach (XmlNode item in items.ChildNodes)
             {
                 Tile tile = item.Name == "Wall" ? Tile.Wall : Tile.Trap;
@@ -814,6 +820,10 @@ namespace kolpet.MazeSolver
                 if (tile == Tile.Trap)
                 {
                     traps[x, y] = trapCount++;
+                }
+                if (tile == Tile.Wall)
+                {
+                    wallCount++;
                 }
             }
 
@@ -830,6 +840,12 @@ namespace kolpet.MazeSolver
 
             tiles[Start.x, Start.y] = Tile.Start;
             tiles[End.x, End.y] = Tile.End;
+
+            {
+                double wallComplexity = ((double)Math.Abs(wallCount - 112) / 113) + 1;
+                double trapComplexity = Math.Sqrt(Math.Min(trapCount, 25)) / 5 + 1;
+                Complexity = wallComplexity * trapComplexity;
+            }
         }
 
         public int GetWeight(Point point) => weight[point.x, point.y];
@@ -842,6 +858,7 @@ namespace kolpet.MazeSolver
 
         public int GetTrapId(int x, int y) => traps[x, y];
 
+#if DEBUG
         public string Print(bool weights)
         {
             StringBuilder text = new StringBuilder();
@@ -875,8 +892,6 @@ namespace kolpet.MazeSolver
             }
             return text.ToString();
         }
-
-#if DEBUG
         public string Visualize => Print(true);
 #endif
     }
@@ -1278,22 +1293,6 @@ namespace kolpet.MazeSolver
             }
 
             return new MazeView(maze, district, direction);
-        }
-
-        public static MazeView FindBestWeight(this Maze maze, Point position)
-        {
-            MazeView? result = null;
-            int best = int.MaxValue;
-            foreach (MazeView cache in maze.Cache.Values)
-            {
-                int weight = cache.GetWeight(position);
-                if (weight != 0 && weight < best)
-                {
-                    result = cache;
-                    best = weight;
-                }
-            }
-            return result!;
         }
     }
 }
